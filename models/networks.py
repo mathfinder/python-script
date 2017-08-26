@@ -275,6 +275,106 @@ class DeeplabConv5_22Fc8_interp(nn.Module):
         x = self.fc8_interp(x1 + x2 + x3 + x4)
         return x
 
+class DeeplabPool12Pool5(nn.Module):
+    def __init__(self, size=(241,121)):
+        super(DeeplabPool12Pool5, self).__init__()
+        self.conv2_1 = nn.Conv2d(64, 128, 3, padding=1)
+        self.conv2_2 = nn.Conv2d(128, 128, 3, padding=1)
+        self.pool2 = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
+        self.conv3_1 = nn.Conv2d(128, 256, 3, padding=1)
+        self.conv3_2 = nn.Conv2d(256, 256, 3, padding=1)
+        self.conv3_3 = nn.Conv2d(256, 256, 3, padding=1)
+        self.pool3 = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
+        self.conv4_1 = nn.Conv2d(256, 512, 3, padding=1)
+        self.conv4_2 = nn.Conv2d(512, 512, 3, padding=1)
+        self.conv4_3 = nn.Conv2d(512, 512, 3, padding=1)
+        self.pool4 = nn.MaxPool2d(kernel_size=3, stride=1, padding=1)
+        self.conv5_1 = nn.Conv2d(512, 512, 3, padding=2, dilation=2)
+        self.conv5_2 = nn.Conv2d(512, 512, 3, padding=2, dilation=2)
+        self.conv5_3 = nn.Conv2d(512, 512, 3, padding=2, dilation=2)
+        self.pool5 = nn.MaxPool2d(kernel_size=3, stride=1, padding=1)
+
+        self.relu = nn.ReLU()
+
+        #self.fc8_interp = nn.Upsample(scale_factor=8,mode='bilinear')
+        self.fc8_interp = nn.Upsample(size=size, mode='bilinear')
+
+    def weights_init(self, pretrained_dict={}):
+        model_dict = self.state_dict()
+        pretrained_dict = {k: v for k, v in pretrained_dict.items() if k in model_dict}
+        model_dict.update(pretrained_dict)
+        self.load_state_dict(model_dict)
+
+    def forward(self, x):
+        x = self.relu(self.conv2_1(x))
+        x = self.pool2(self.relu(self.conv2_2(x)))
+        x = self.relu(self.conv3_1(x))
+        x = self.relu(self.conv3_2(x))
+        x = self.pool3(self.relu(self.conv3_3(x)))
+        x = self.relu(self.conv4_1(x))
+        x = self.relu(self.conv4_2(x))
+        x = self.pool4(self.relu(self.conv4_3(x)))
+        x = self.relu(self.conv5_1(x))
+        x = self.relu(self.conv5_2(x))
+        x = self.pool5(self.relu(self.conv5_3(x)))
+        return x
+
+class DeeplabPool5_22Fc8_interp(nn.Module):
+    def __init__(self, size=(241,121)):
+        super(DeeplabPool5_22Fc8_interp, self).__init__()
+
+        self.fc6_1 = nn.Conv2d(512, 1024, 3, padding=6, dilation=6)
+        self.fc7_1 = nn.Conv2d(1024, 1024, 1)
+        self.fc8_1 = nn.Conv2d(1024, 12, 1)
+
+        self.fc6_2 = nn.Conv2d(512, 1024, 3, padding=12, dilation=12)
+        self.fc7_2 = nn.Conv2d(1024, 1024, 1)
+        self.fc8_2 = nn.Conv2d(1024, 12, 1)
+
+        self.fc6_3 = nn.Conv2d(512, 1024, 3, padding=18, dilation=18)
+        self.fc7_3 = nn.Conv2d(1024, 1024, 1)
+        self.fc8_3 = nn.Conv2d(1024, 12, 1)
+
+        self.fc6_4 = nn.Conv2d(512, 1024, 3, padding=24, dilation=24)
+        self.fc7_4 = nn.Conv2d(1024, 1024, 1)
+        self.fc8_4 = nn.Conv2d(1024, 12, 1)
+        self.dropout = nn.Dropout2d(0.5)
+        self.relu = nn.ReLU(inplace=True)
+        self.fc8_interp = nn.Upsample(size=size, mode='bilinear')
+
+    def weights_init(self, pretrained_dict={}):
+        init.normal(self.fc8_1.weight.data, mean=0, std=0.01)
+        init.constant(self.fc8_1.bias.data, 0)
+        init.normal(self.fc8_2.weight.data, mean=0, std=0.01)
+        init.constant(self.fc8_2.bias.data, 0)
+        init.normal(self.fc8_3.weight.data, mean=0, std=0.01)
+        init.constant(self.fc8_3.bias.data, 0)
+        init.normal(self.fc8_4.weight.data, mean=0, std=0.01)
+        init.constant(self.fc8_4.bias.data, 0)
+
+        model_dict = self.state_dict()
+        pretrained_dict = {k: v for k, v in pretrained_dict.items() if k in model_dict}
+        model_dict.update(pretrained_dict)
+        self.load_state_dict(model_dict)
+
+    def forward(self, x):
+        x1 = self.dropout(self.relu(self.fc6_1(x)))
+        x1 = self.dropout(self.relu(self.fc7_1(x1)))
+        x1 = self.fc8_1(x1)
+
+        x2 = self.dropout(self.relu(self.fc6_2(x)))
+        x2 = self.dropout(self.relu(self.fc7_2(x2)))
+        x2 = self.fc8_2(x2)
+
+        x3 = self.dropout(self.relu(self.fc6_3(x)))
+        x3 = self.dropout(self.relu(self.fc7_3(x3)))
+        x3 = self.fc8_3(x3)
+
+        x4 = self.dropout(self.relu(self.fc6_4(x)))
+        x4 = self.dropout(self.relu(self.fc7_4(x4)))
+        x4 = self.fc8_4(x4)
+        x = self.fc8_interp(x1 + x2 + x3 + x4)
+        return x
 
 class netG(nn.Module):
     def __init__(self, n_blocks=6):
@@ -286,7 +386,7 @@ class netG(nn.Module):
         use_dropout = 0
 
         mult = 1
-        model = [nn.Conv2d(input_nc, ngf, kernel_size=3, padding=1), norm_layer(ngf), nn.ReLU(True)]
+        model = [nn.Conv2d(input_nc, ngf, kernel_size=7, padding=3), norm_layer(ngf), nn.ReLU(True)]
 
         for i in range(n_blocks):
             if (i+1) % 3 == 0:
@@ -296,6 +396,27 @@ class netG(nn.Module):
 
         self.model = nn.Sequential(*model)
 
+
+    def forward(self, x):
+        return self.model(x)
+
+class netG_structure(nn.Module):
+    def __init__(self, n_blocks=3, size=(241, 121)):
+        super(netG, self).__init__()
+        input_nc = 64
+        ngf = 128
+        norm_layer = nn.BatchNorm2d
+        padding_type = 'reflect'
+        use_dropout = 0
+
+        model = [nn.Conv2d(input_nc, ngf, kernel_size=7, padding=3), norm_layer(ngf), nn.ReLU(True)]
+
+        for i in range(n_blocks):
+            model += [
+                ResnetBlock(ngf, padding_type=padding_type, norm_layer=norm_layer, use_dropout=use_dropout)]
+
+        model = + [nn.Upsample(size=size, mode='bilinear')]
+        self.model = nn.Sequential(*model)
 
     def forward(self, x):
         return self.model(x)
@@ -341,7 +462,6 @@ class ResnetBlock(nn.Module):
     def forward(self, x):
         out = x + self.conv_block(x)
         return out
-
 
 class MultPathdilationNet(nn.Module):
     def __init__(self):
@@ -427,3 +547,51 @@ class SinglePathdilationMultOutputNet(nn.Module):
 
     def forward(self, x):
         return self.model(x)
+
+class dcgan_D(nn.Module):
+    def __init__(self, input_nc, ngf=64, norm_layer=nn.BatchNorm2d, n_layers=4):
+        super(input_nc, self).__init__()
+        self.input_nc = input_nc
+        self.ngf = ngf
+        self.norm_layer = norm_layer
+        self.n_layers = n_layers
+        self.padding_type = 'reflect'
+
+        mult = 1
+        model = [nn.Conv2d(input_nc, ngf, 4, stride=2, padding=1), norm_layer(ngf), nn.ReLU(inplace=True)]
+        for i in range(self.layers-1):
+            model = model + [nn.Conv2d(ngf*mult, ngf*mult*2, 4, stride=2, padding=1), norm_layer(ngf*mult*2), nn.ReLU(inplace=True)]
+            mult *= 2
+
+        model = model + [nn.Conv2d(ngf * mult, ngf,4)]
+        self.model = nn.Sequential(*model)
+
+
+    def forward(self, x):
+        x = self.model(x)
+        x = x.view(x.size(0), -1)
+        x = nn.Sigmoid()(nn.Linear(x.size(1), 1)(x))
+        return x
+
+class dcgan_D_multOut(nn.Module):
+    def __init__(self, input_nc, ngf=64, norm_layer=nn.BatchNorm2d, n_layers=4):
+        super(input_nc, self).__init__()
+        self.input_nc = input_nc
+        self.ngf = ngf
+        self.norm_layer = norm_layer
+        self.n_layers = n_layers
+        self.padding_type = 'reflect'
+
+        mult = 1
+        model = [nn.Conv2d(input_nc, ngf, 4, stride=2, padding=1), norm_layer(ngf), nn.ReLU(inplace=True)]
+        for i in range(self.layers-1):
+            model = model + [nn.Conv2d(ngf*mult, ngf*mult*2, 4, stride=2, padding=1), norm_layer(ngf*mult*2), nn.ReLU(inplace=True)]
+            mult *= 2
+
+        model = model + [nn.Conv2d(ngf * mult, 1, 4)]
+        self.model = nn.Sequential(*model)
+
+
+    def forward(self, x):
+
+        return x
