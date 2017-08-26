@@ -49,8 +49,10 @@ class imageLabelLoader(data.Dataset):
 
         lbl = Image.open(lbl_path)
         lbl_size = lbl.size
+
         if self.img_size[1] != lbl_size[0] or self.img_size[0] != lbl_size[1]:
-            lbl = lbl.resize((self.lbl_size[1], self.lbl_size[0]), resample=Image.BILINEAR)
+            lbl = lbl.resize((self.img_size[1], self.img_size[0]), resample=Image.BILINEAR)
+
         lbl = np.array(lbl)
         lbl = lbl.copy()
 
