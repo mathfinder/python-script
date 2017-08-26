@@ -57,7 +57,7 @@ def train(A_train_loader, B_train_loader, model, epoch):
                 loss_G=model.loss_G.data[0], loss_D=model.loss_D.data[0]))
 
 
-def validate(val_loader, model, criterion, witch_domain):
+def validate(val_loader, model, criterion, adaptation):
     # switch to evaluate mode
     run_time = time.time()
     matrix = ConfusionMatrix(args['label_nums'])
@@ -67,7 +67,7 @@ def validate(val_loader, model, criterion, witch_domain):
         labels = labels.cuda(async=True)
         target_var = torch.autograd.Variable(labels, volatile=True)
 
-        model.test(witch_domain, images)
+        model.test(adaptation, images)
         output = model.output
         loss += criterion(output, target_var)/args['batch_size']
         matrix = update_confusion_matrix(matrix, output.data, labels)
@@ -114,11 +114,10 @@ def main():
     for epoch in range(args['n_epoch']):
         train(A_train_loader, B_train_loader, model, epoch)
         if epoch % 2 == 0:
-            prec = validate(A_val_loader, model, nn.CrossEntropyLoss(size_average=False), witch_domain='A')
-            prec = validate(B_val_loader, model, nn.CrossEntropyLoss(size_average=False), witch_domain='B')
+            prec = validate(A_val_loader, model, nn.CrossEntropyLoss(size_average=False), False)
+            prec = validate(B_val_loader, model, nn.CrossEntropyLoss(size_average=False), True)
             is_best = prec > best_prec
             best_prec = max(prec, best_prec)
-            model.save(epoch)
             if is_best:
                 model.save('best')
 
@@ -138,7 +137,7 @@ if __name__ == '__main__':
         'batch_size':10,
         'num_workers':10,
         'print_freq':10,
-        'device_ids':[0],
+        'device_ids':[1],
         'domainA': 'lip',
         'domainB': 'indoor',
         'weigths_pool': 'pretrain_models',
@@ -146,10 +145,9 @@ if __name__ == '__main__':
         'fineSizeH':241,
         'fineSizeW':121,
         'input_nc':3,
-        'name': 'v3_1',
+        'name': 'v3_2',
         'checkpoints_dir': 'checkpoints',
-        'checkpoints_dir': 'checkpoints',
-        'net_D': 'MultPathdilationNet',
-        'use_lsgan': True,
+        'net_D':'SinglePathdilationMultOutputNet',
+        'use_lsgan':False,
     }
     main()

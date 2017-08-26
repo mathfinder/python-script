@@ -18,6 +18,18 @@ def weights_init(m):
     elif classname.find('BatchNorm2d') != -1:
         m.weight.data.normal_(1.0, 0.02)
         m.bias.data.fill_(0)
+    elif classname.find('Linear') != -1:
+        m.weight.data.normal_(0.0, 0.02)
+
+def define_D(which_netD):
+    if which_netD == 'FFC':
+        return networks.FFC()
+    elif which_netD == 'MultPathdilationNet':
+        return networks.MultPathdilationNet()
+    elif which_netD == 'SinglePathdilationSingleOutputNet':
+        return networks.SinglePathdilationSingleOutputNet()
+    elif which_netD == 'SinglePathdilationMultOutputNet':
+        return networks.SinglePathdilationMultOutputNet()
 
 class deeplabGan(BaseModel):
     def name(self):
@@ -33,7 +45,8 @@ class deeplabGan(BaseModel):
         self.input_A_label = torch.cuda.LongTensor(self.nb, args['input_nc'], sizeH, sizeW)
 
         self.netG = networks.netG().cuda(device_id=args['device_ids'][0])
-        self.netD = networks.netD().cuda(device_id=args['device_ids'][0])
+        self.netD = define_D(args['net_D']).cuda(device_id=args['device_ids'][0])
+
         self.deeplabPart1 = networks.DeeplabPool1().cuda(device_id=args['device_ids'][0])
         self.deeplabPart2 = networks.DeeplabPool12Conv5_1().cuda(device_id=args['device_ids'][0])
         self.deeplabPart3 = networks.DeeplabConv5_22Fc8_interp().cuda(device_id=args['device_ids'][0])
@@ -47,7 +60,7 @@ class deeplabGan(BaseModel):
 
         # define loss functions
         self.criterionCE = torch.nn.CrossEntropyLoss(size_average=False)
-        self.criterionAdv = networks.Advloss(use_lsgan=True, tensor=self.Tensor)
+        self.criterionAdv = networks.Advloss(use_lsgan=args['use_lsgan'], tensor=self.Tensor)
 
         # initialize optimizers
         self.optimizer_G = torch.optim.Adam(self.netG.parameters(),
@@ -100,8 +113,8 @@ class deeplabGan(BaseModel):
         self.B = Variable(self.input_B)
 
     # used in test time, no backprop
-    def test(self, which_domain, input):
-        if which_domain == 'A':
+    def test(self, adaptation, input):
+        if not adaptation :
             self.input_A.resize_(input.size()).copy_(input)
             self.A = Variable(self.input_A)
             self.output = self.deeplabPart3(self.deeplabPart2(self.deeplabPart1(self.A)))
@@ -124,8 +137,8 @@ class deeplabGan(BaseModel):
 
     def backward_G(self):
         self.input_B_G = self.deeplabPart1(self.B)
-
-        self.feature_B = self.deeplabPart2(self.input_B_G) + self.netG(self.input_B_G)
+        self.resdual = self.netG(self.input_B_G)
+        self.feature_B = self.deeplabPart2(self.input_B_G) + self.resdual
         self.feature_B_input = Variable(self.feature_B.data)
         pred_fake = self.netD.forward(self.feature_B)
 
