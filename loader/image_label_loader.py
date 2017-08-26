@@ -19,11 +19,15 @@ class imageLabelLoader(data.Dataset):
         self.img_size = img_size if isinstance(img_size, tuple) else (img_size, img_size)
         self.mean = np.array([128, 128, 128])
         self.files = collections.defaultdict(list)
-
-        for phase in ['train', 'val']:
+        """
+        for phase in ['train', 'val', 'train+5light']:
             file_list = tuple(open(root +'/' + dataName +'/'+ phase + '.txt', 'r'))
             file_list = [id_.rstrip() for id_ in file_list]
             self.files[phase] = file_list
+        """
+        file_list = tuple(open(root + '/' + dataName + '/' + self.phase + '.txt', 'r'))
+        file_list = [id_.rstrip() for id_ in file_list]
+        self.files[self.phase] = file_list
         # print self.files['train']
     def __len__(self):
         return len(self.files[self.phase])
