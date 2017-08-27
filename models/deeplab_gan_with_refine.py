@@ -168,7 +168,7 @@ class deeplabGanWithRefine(BaseModel):
     def backward_R(self):
         pool1 = self.deeplabPart1(self.A)
         self.predic_A_R = self.deeplabPart3(self.deeplabPart2(pool1) + self.netG(pool1))
-        self.loss_R = self.criterionCE(self.predic_A_R, self.A_label)
+        self.loss_R = self.criterionCE(self.predic_A_R, self.A_label)  / self.nb
 
         self.loss_R.backward()
 

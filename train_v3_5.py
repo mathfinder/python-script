@@ -2,7 +2,7 @@ import shutil
 import torch
 import time
 import torch.nn as nn
-from models.deeplab_gan import deeplabGan
+from models.deeplab_gan_with_refine import deeplabGanWithRefine
 from torch.autograd import Variable
 from torch.utils import data
 from loader.image_label_loader import imageLabelLoader
@@ -100,7 +100,7 @@ def main():
     B_val_loader = data.DataLoader(imageLabelLoader(args['data_path'], dataName=args['domainB'], phase='val'),
                                    batch_size=args['batch_size'],
                                    num_workers=args['num_workers'], shuffle=False)
-    model = deeplabGan()
+    model = deeplabGanWithRefine()
     model.initialize(args)
 
     # multi GPUS
@@ -131,6 +131,7 @@ def main():
                 logger.info('Time: {time}\t'
                       'Epoch/Iter: [{epoch}/{Iter}]\t'
                       'loss: {loss:.4f}\t'
+                      'loss_R: {loss_R:.4f}\t'
                       'acc: {accuracy:.4f}\t'
                       'fg_acc: {fg_accuracy:.4f}\t'
                       'avg_prec: {avg_precision:.4f}\t'
@@ -140,7 +141,7 @@ def main():
                       'loss_D: {loss_D:.4f}\t'.format(
                     time=time.strftime("%Y-%m-%d_%H:%M:%S", time.localtime()),
                     epoch=epoch, Iter=Iter, loss=model.loss_P.data[0],
-                    accuracy=matrix.accuracy(),
+                    loss_R=model.loss_R.data[0], accuracy=matrix.accuracy(),
                     fg_accuracy=matrix.fg_accuracy(), avg_precision=matrix.avg_precision(),
                     avg_recall=matrix.avg_recall(), avg_f1core=matrix.avg_f1score(),
                     loss_G=model.loss_G.data[0], loss_D=model.loss_D.data[0]))
@@ -156,7 +157,7 @@ def main():
                 is_best = prec_Ori_on_B > best_Ori_on_B
                 best_Ori_on_B = max(prec_Ori_on_B, best_Ori_on_B)
                 if is_best:
-                    model.save('best_Ori_on_B')
+                    model.save('best_Ori_on_B', Iter=Iter, epoch=epoch, acc={'acc_Ori_on_A':acc_Ori_on_A, 'acc_Ori_on_B':acc_Ori_on_B, 'acc_Ada_on_B':acc_Ori_on_B})
 
                 is_best = prec_Ada_on_B > best_Ada_on_B
                 best_Ada_on_B = max(prec_Ada_on_B, best_Ada_on_B)
@@ -171,14 +172,15 @@ if __name__ == '__main__':
         'test_init':False,
         'label_nums':12,
         'l_rate':1e-8,
-        'lr_gan': 0.0001,
+        'lr_gan': 0.00001,
+        'lr_refine': 1e-7,
         'beta1': 0.5,
         'data_path':'datasets',
         'n_epoch':1000,
         'batch_size':10,
         'num_workers':10,
         'print_freq':10,
-        'device_ids':[0],
+        'device_ids':[1],
         'domainA': 'Lip',
         'domainB': 'Indoor',
         'weigths_pool': 'pretrain_models',
@@ -186,7 +188,7 @@ if __name__ == '__main__':
         'fineSizeH':241,
         'fineSizeW':121,
         'input_nc':3,
-        'name': 'v3_5',
+        'name': 'v3_5_t->s_Refine',
         'checkpoints_dir': 'checkpoints',
         'net_D': 'NoBNSinglePathdilationMultOutputNet',
         'use_lsgan': True,

@@ -185,7 +185,7 @@ class deeplabGan(BaseModel):
     def get_current_errors(self):
         return {}
 
-    def save(self, model_name, Iter, epoch, acc=[]):
+    def save(self, model_name, Iter=None, epoch=None, acc=[]):
         save_filename = '%s_model.pth' % (model_name)
         save_path = os.path.join(self.save_dir, save_filename)
         torch.save({
@@ -193,8 +193,8 @@ class deeplabGan(BaseModel):
             'Iter': Iter,
             'epoch': epoch,
             'acc':acc,
-            'state_dict_netG': self.netG.cpu().state_dict(),
-            'state_dict_netD': self.netD.cpu().state_dict(),
+            'state_dict_netG': self.netG.state_dict(),
+            'state_dict_netD': self.netD.state_dict(),
             'state_dict_deeplabPart1': self.deeplabPart1.state_dict(),
             'state_dict_deeplabPart2':self.deeplabPart2.state_dict(),
             'state_dict_deeplabPart3': self.deeplabPart3.state_dict(),

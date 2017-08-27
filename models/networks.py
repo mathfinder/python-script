@@ -583,10 +583,8 @@ class SinglePathdilationMultOutputNet(nn.Module):
 
 class NoBNSinglePathdilationMultOutputNet(nn.Module):
     def __init__(self):
-        super(SinglePathdilationMultOutputNet, self).__init__()
+        super(NoBNSinglePathdilationMultOutputNet, self).__init__()
         input_nc = 512
-        ngf = 128
-        norm_layer = nn.BatchNorm2d
         padding_type = 'reflect'
         use_dropout = 0
 
