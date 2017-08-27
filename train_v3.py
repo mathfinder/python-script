@@ -32,7 +32,6 @@ def train(A_train_loader, B_train_loader, model, epoch):
     for i, (A_image, A_label) in enumerate(A_train_loader):
         B_image = next(iter(B_train_loader))
         model.set_input({'A':A_image, 'A_label':A_label, 'B':B_image})
-        model.forward()
         model.optimize_parameters()
         output = model.output
         if i % args['print_freq'] == 0:
@@ -90,7 +89,7 @@ def main():
     if len(args['device_ids']) > 0:
         torch.cuda.set_device(args['device_ids'][0])
 
-    A_train_loader = data.DataLoader(imageLabelLoader(args['data_path'],dataName=args['domainA'], phase='train+5light'), batch_size=args['batch_size'],
+    A_train_loader = data.DataLoader(imageLabelLoader(args['data_path'],dataName=args['domainA'], phase='train'), batch_size=args['batch_size'],
                                   num_workers=args['num_workers'], shuffle=True)
     A_val_loader = data.DataLoader(imageLabelLoader(args['data_path'], dataName=args['domainA'], phase='val'), batch_size=args['batch_size'],
                                 num_workers=args['num_workers'], shuffle=False)
@@ -124,7 +123,6 @@ def main():
             Iter += 1
             B_image = next(iter(B_train_loader))
             model.set_input({'A': A_image, 'A_label': A_label, 'B': B_image})
-            model.forward()
             model.optimize_parameters()
             output = model.output
             if i % args['print_freq'] == 0:

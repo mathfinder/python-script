@@ -581,7 +581,7 @@ class SinglePathdilationMultOutputNet(nn.Module):
     def forward(self, x):
         return self.model(x)
 
-class NobnSinglePathdilationMultOutputNet(nn.Module):
+class NoBNSinglePathdilationMultOutputNet(nn.Module):
     def __init__(self):
         super(SinglePathdilationMultOutputNet, self).__init__()
         input_nc = 512
