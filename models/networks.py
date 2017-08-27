@@ -319,9 +319,9 @@ class DeeplabPool12Pool5(nn.Module):
         x = self.pool5(self.relu(self.conv5_3(x)))
         return x
 
-class DeeplabPool5_22Fc8_interp(nn.Module):
+class DeeplabPool52Fc8_interp(nn.Module):
     def __init__(self, size=(241,121)):
-        super(DeeplabPool5_22Fc8_interp, self).__init__()
+        super(DeeplabPool52Fc8_interp, self).__init__()
 
         self.fc6_1 = nn.Conv2d(512, 1024, 3, padding=6, dilation=6)
         self.fc7_1 = nn.Conv2d(1024, 1024, 1)
@@ -401,9 +401,8 @@ class netG(nn.Module):
         return self.model(x)
 
 class netG_structure(nn.Module):
-    def __init__(self, n_blocks=3, size=(241, 121)):
-        super(netG, self).__init__()
-        input_nc = 64
+    def __init__(self, input_nc=512, output_nc=12, n_blocks=3, size=(241, 121)):
+        super(netG_structure, self).__init__()
         ngf = 128
         norm_layer = nn.BatchNorm2d
         padding_type = 'reflect'
@@ -415,7 +414,7 @@ class netG_structure(nn.Module):
             model += [
                 ResnetBlock(ngf, padding_type=padding_type, norm_layer=norm_layer, use_dropout=use_dropout)]
 
-        model = + [nn.Upsample(size=size, mode='bilinear')]
+        model += [nn.Conv2d(ngf, output_nc, kernel_size=3, padding=1), nn.Upsample(size=size, mode='bilinear')]
         self.model = nn.Sequential(*model)
 
     def forward(self, x):
@@ -495,16 +494,51 @@ class MultPathdilationNet(nn.Module):
     def forward(self, x):
         return ( self.model_1(x) + self.model_2(x) + self.model_3(x) + self.model_4(x) ) / 4
 
-class FFC(nn.Module):
+class NoBNMultPathdilationNet(nn.Module):
     def __init__(self):
-        super(FFC, self).__init__()
+        super(NoBNMultPathdilationNet, self).__init__()
+        input_nc = 512
+        ngf = 128
+        norm_layer = nn.InstanceNorm2d
+        padding_type = 'reflect'
+        use_dropout = 0
+        self.relu = nn.ReLU(inplace=True)
+
+        model_1 = [nn.Conv2d(512, 1024, 3, padding=6, dilation=6), self.relu, nn.Dropout2d(0.5),
+                   nn.Conv2d(1024, 1024, 3, stride=2, padding=1), self.relu, nn.Dropout2d(0.5),
+                   nn.Conv2d(1024, 1, 3, stride=2, padding=1)]
+        model_2 = [nn.Conv2d(512, 1024, 3, padding=6, dilation=6), self.relu, nn.Dropout2d(0.5),
+                   nn.Conv2d(1024, 1024, 3, stride=2, padding=1), self.relu, nn.Dropout2d(0.5),
+                   nn.Conv2d(1024, 1, 3, stride=2, padding=1)]
+        model_3 = [nn.Conv2d(512, 1024, 3, padding=6, dilation=6), self.relu, nn.Dropout2d(0.5),
+                   nn.Conv2d(1024, 1024, 3, stride=2, padding=1), self.relu, nn.Dropout2d(0.5),
+                   nn.Conv2d(1024, 1, 3, stride=2, padding=1)]
+        model_4 = [nn.Conv2d(512, 1024, 3, padding=6, dilation=6), self.relu, nn.Dropout2d(0.5),
+                   nn.Conv2d(1024, 1024, 3, stride=2, padding=1), self.relu, nn.Dropout2d(0.5),
+                   nn.Conv2d(1024, 1, 3, stride=2, padding=1)]
+
+        self.model_1 = nn.Sequential(*model_1)
+        self.model_2 = nn.Sequential(*model_2)
+        self.model_3 = nn.Sequential(*model_3)
+        self.model_4 = nn.Sequential(*model_4)
+
+
+    def forward(self, x):
+        return ( self.model_1(x) + self.model_2(x) + self.model_3(x) + self.model_4(x) ) / 4
+
+class FFCFeature(nn.Module):
+    def __init__(self):
+        super(FFCFeature, self).__init__()
         self.classifier = nn.Sequential(
+            nn.Dropout(0.5),
             nn.Linear(512 * 31 * 16, 512),
+            nn.BatchNorm1d(512),
             nn.ReLU(True),
-            nn.Dropout(),
+            nn.Dropout(0.5),
             nn.Linear(512, 1024),
+            nn.BatchNorm1d(1024),
             nn.ReLU(True),
-            nn.Dropout(),
+            nn.Dropout(0.5),
             nn.Linear(1024, 1),
             nn.Sigmoid()
         )
@@ -574,8 +608,8 @@ class dcgan_D(nn.Module):
         return x
 
 class dcgan_D_multOut(nn.Module):
-    def __init__(self, input_nc, ngf=64, norm_layer=nn.BatchNorm2d, n_layers=4):
-        super(input_nc, self).__init__()
+    def __init__(self, input_nc=12, ngf=64, norm_layer=nn.BatchNorm2d, n_layers=4):
+        super(dcgan_D_multOut, self).__init__()
         self.input_nc = input_nc
         self.ngf = ngf
         self.norm_layer = norm_layer
@@ -584,7 +618,7 @@ class dcgan_D_multOut(nn.Module):
 
         mult = 1
         model = [nn.Conv2d(input_nc, ngf, 4, stride=2, padding=1), norm_layer(ngf), nn.ReLU(inplace=True)]
-        for i in range(self.layers-1):
+        for i in range(self.n_layers-1):
             model = model + [nn.Conv2d(ngf*mult, ngf*mult*2, 4, stride=2, padding=1), norm_layer(ngf*mult*2), nn.ReLU(inplace=True)]
             mult *= 2
 
@@ -594,4 +628,4 @@ class dcgan_D_multOut(nn.Module):
 
     def forward(self, x):
 
-        return x
+        return self.model(x)
