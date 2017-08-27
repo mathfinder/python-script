@@ -190,7 +190,7 @@ if __name__ == '__main__':
         'fineSizeH':241,
         'fineSizeW':121,
         'input_nc':3,
-        'name': 'v3_1',
+        'name': 'v3_3',
         'checkpoints_dir': 'checkpoints',
         'net_D': 'NoBNMultPathdilationNet',
         'net_D_structure': 'dcgan_D_multOut',

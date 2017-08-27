@@ -61,7 +61,6 @@ class Advloss(nn.Module):
         target_tensor = self.get_target_tensor(input, target_is_real)
         return self.loss(input, target_tensor)
 
-
 class Deeplab(nn.Module):
     def __init__(self, size=(241,121)):
         super(Deeplab, self).__init__()
@@ -574,7 +573,26 @@ class SinglePathdilationMultOutputNet(nn.Module):
 
         model = [nn.Conv2d(512, 1024, 3, padding=6, dilation=6), norm_layer(1024), nn.ReLU(inplace=True),nn.Dropout2d(0.5),
                  nn.Conv2d(1024, 1024, 3, stride=2, padding=1), norm_layer(1024), nn.ReLU(inplace=True),nn.Dropout2d(0.5),
-                 nn.Conv2d(1024, 1, 3, stride=2, padding=1), nn.Sigmoid()]
+                 nn.Conv2d(1024, 1, 3, stride=2, padding=1)]
+
+        self.model = nn.Sequential(*model)
+
+
+    def forward(self, x):
+        return self.model(x)
+
+class NobnSinglePathdilationMultOutputNet(nn.Module):
+    def __init__(self):
+        super(SinglePathdilationMultOutputNet, self).__init__()
+        input_nc = 512
+        ngf = 128
+        norm_layer = nn.BatchNorm2d
+        padding_type = 'reflect'
+        use_dropout = 0
+
+        model = [nn.Conv2d(512, 1024, 3, padding=6, dilation=6), nn.ReLU(inplace=True),nn.Dropout2d(0.5),
+                 nn.Conv2d(1024, 1024, 3, stride=2, padding=1), nn.ReLU(inplace=True),nn.Dropout2d(0.5),
+                 nn.Conv2d(1024, 1, 3, stride=2, padding=1)]
 
         self.model = nn.Sequential(*model)
 

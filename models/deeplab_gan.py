@@ -51,16 +51,19 @@ class deeplabGan(BaseModel):
         self.deeplabPart2 = networks.DeeplabPool12Pool5().cuda(device_id=args['device_ids'][0])
         self.deeplabPart3 = networks.DeeplabPool52Fc8_interp().cuda(device_id=args['device_ids'][0])
 
-        self.netG.apply(weights_init)
-        self.netD.apply(weights_init)
-        pretrained_dict = torch.load(args['weigths_pool'] + '/' + args['pretrain_model'])
-        self.deeplabPart1.weights_init(pretrained_dict=pretrained_dict)
-        self.deeplabPart2.weights_init(pretrained_dict=pretrained_dict)
-        self.deeplabPart3.weights_init(pretrained_dict=pretrained_dict)
-
         # define loss functions
         self.criterionCE = torch.nn.CrossEntropyLoss(size_average=False)
         self.criterionAdv = networks.Advloss(use_lsgan=args['use_lsgan'], tensor=self.Tensor)
+
+
+        if args['resume']:
+            #initialize networks
+            self.netG.apply(weights_init)
+            self.netD.apply(weights_init)
+            pretrained_dict = torch.load(args['weigths_pool'] + '/' + args['pretrain_model'])
+            self.deeplabPart1.weights_init(pretrained_dict=pretrained_dict)
+            self.deeplabPart2.weights_init(pretrained_dict=pretrained_dict)
+            self.deeplabPart3.weights_init(pretrained_dict=pretrained_dict)
 
         # initialize optimizers
         self.optimizer_G = torch.optim.Adam(self.netG.parameters(),
@@ -180,12 +183,58 @@ class deeplabGan(BaseModel):
     def get_current_errors(self):
         return {}
 
-    def save(self, label):
-        self.save_network(self.netG, 'netG', label, self.gpu_ids)
-        self.save_network(self.netD, 'netD', label, self.gpu_ids)
-        self.save_network(self.deeplabPart1, 'deeplabPart1', label, self.gpu_ids)
-        self.save_network(self.deeplabPart2, 'deeplabPart2', label, self.gpu_ids)
-        self.save_network(self.deeplabPart3, 'deeplabPart3', label, self.gpu_ids)
+    def save(self, model_name, Iter, epoch, acc=[]):
+        save_filename = '%s_model.pth' % (model_name)
+        save_path = os.path.join(self.save_dir, save_filename)
+        torch.save({
+            'name':self.name(),
+            'Iter': Iter,
+            'epoch': epoch,
+            'acc':acc,
+            'state_dict_netG': self.netG.cpu().state_dict(),
+            'state_dict_netD': self.netD.cpu().state_dict(),
+            'state_dict_deeplabPart1': self.deeplabPart1.state_dict(),
+            'state_dict_deeplabPart2':self.deeplabPart2.state_dict(),
+            'state_dict_deeplabPart3': self.deeplabPart3.state_dict(),
+            'optimizer_P':self.optimizer_P.state_dict(),
+            'optimizer_G': self.optimizer_G.state_dict(),
+            'optimizer_D': self.optimizer_D.state_dict(),
+        }, save_path)
+        """
+        if len(self.gpu_ids) and torch.cuda.is_available():
+            self.deeplabPart1.cuda(device_id=self.gpu_ids[0])
+            self.deeplabPart2.cuda(device_id=self.gpu_ids[0])
+            self.deeplabPart3.cuda(device_id=self.gpu_ids[0])
+            self.netG.cuda(device_id=self.gpu_ids[0])
+            self.netD.cuda(device_id=self.gpu_ids[0])
+        """
+
+    def load(self, load_path):
+        checkpoint = torch.load(load_path)
+        self.netG.load_state_dict(checkpoint['state_dict_netG'])
+        self.netD.load_state_dict(checkpoint['state_dict_netD'])
+        self.deeplabPart1.load_state_dict(checkpoint['state_dict_deeplabPart1'])
+        self.deeplabPart2.load_state_dict(checkpoint['state_dict_deeplabPart2'])
+        self.deeplabPart3.load_state_dict(checkpoint['state_dict_deeplabPart3'])
+
+        self.optimizer_P.load_state_dict(checkpoint['optimizer_P'])
+        self.optimizer_P.load_state_dict(checkpoint['optimizer_G'])
+        self.optimizer_P.load_state_dict(checkpoint['optimizer_D'])
+        for k,v in checkpoint['acc']:
+            print('=================================================')
+            print('accuracy: {1:.4f}\t'
+                  'fg_accuracy: {2:.4f}\t'
+                  'avg_precision: {3:.4f}\t'
+                  'avg_recall: {4:.4f}\t'
+                  'avg_f1score: {5:.4f}\t'
+                  .format(v['accuracy'],v['fg_accuracy'],v['avg_precision'], v['avg_recall'], v['avg_f1score']))
+            print('=================================================')
+
+    # helper loading function that can be used by subclasses
+    def load_network(self, network, network_label, epoch_label):
+        save_filename = '%s_net_%s.pth' % (epoch_label, network_label)
+        save_path = os.path.join(self.save_dir, save_filename)
+        network.load_state_dict(torch.load(save_path))
 
     def update_learning_rate(self):
         pass

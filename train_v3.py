@@ -11,11 +11,10 @@ from util.confusion_matrix import ConfusionMatrix
 import util.makedirs as makedirs
 import os
 import torchvision.models as models
+from util.log import Logger
 
-def save_checkpoint(state, is_best, filename):
+def save_checkpoint(state, filename):
     torch.save(state, filename)
-    if is_best:
-        shutil.copyfile(filename, './checkpoint/model_best.pth.tar')
 
 
 def update_confusion_matrix(matrix, output, target):
@@ -40,8 +39,7 @@ def train(A_train_loader, B_train_loader, model, epoch):
             matrix = ConfusionMatrix()
             update_confusion_matrix(matrix, output.data, A_label)
 
-            print('Time: {time}\t'
-                  'Epoch/Iter: [{epoch}/{Iter}]\t'
+            logger.info('Epoch/Iter: [{epoch}/{Iter}]\t'
                   'loss: {loss:.4f}\t'
                   'acc: {accuracy:.4f}\t'
                   'fg_acc: {fg_accuracy:.4f}\t'
@@ -50,7 +48,6 @@ def train(A_train_loader, B_train_loader, model, epoch):
                   'avg_f1: {avg_f1core:.4f}\t'
                   'loss_G: {loss_G:.4f}\t'
                   'loss_D: {loss_D:.4f}\t'.format(
-                time=time.strftime("%Y-%m-%d_%H:%M:%S", time.localtime()),
                 epoch=epoch, Iter=i+epoch*len(A_train_loader), loss=model.loss_P.data[0], accuracy=matrix.accuracy(),
                 fg_accuracy=matrix.fg_accuracy(), avg_precision=matrix.avg_precision(),
                 avg_recall=matrix.avg_recall(), avg_f1core=matrix.avg_f1score(),
@@ -72,8 +69,8 @@ def validate(val_loader, model, criterion, adaptation):
         matrix = update_confusion_matrix(matrix, output.data, labels)
     loss /= (i+1)
     run_time = time.time() - run_time
-    print('=================================================')
-    print('val:'
+    logger.info('=================================================')
+    logger.info('val:'
           'loss: {0:.4f}\t'
           'accuracy: {1:.4f}\t'
           'fg_accuracy: {2:.4f}\t'
@@ -83,8 +80,8 @@ def validate(val_loader, model, criterion, adaptation):
           'run_time:{run_time:.2f}\t'
           .format(loss.data[0], matrix.accuracy(),
         matrix.fg_accuracy(), matrix.avg_precision(), matrix.avg_recall(), matrix.avg_f1score(),run_time=run_time))
-    print('=================================================')
-    return matrix.avg_f1score()
+    logger.info('=================================================')
+    return matrix.all_acc()
 
 
 def main():
@@ -109,9 +106,16 @@ def main():
 
     # multi GPUS
     # model = torch.nn.DataParallel(model,device_ids=args['device_ids']).cuda()
+    Iter = 0
+    if args['resume']:
+        if os.path.isfile(args['resume']):
+            logger.info("=> loading checkpoint '{}'".format(args['resume']))
+            model.load(args['resume'])
+        else:
+            print("=> no checkpoint found at '{}'".format(args['resume']))
+
     best_Ori_on_B = 0
     best_Ada_on_B = 0
-    Iter = 0
     model.train()
     for epoch in range(args['n_epoch']):
         # train(A_train_loader, B_train_loader, model, epoch)
@@ -126,7 +130,7 @@ def main():
             if i % args['print_freq'] == 0:
                 matrix = ConfusionMatrix()
                 update_confusion_matrix(matrix, output.data, A_label)
-                print('Time: {time}\t'
+                logger.info('Time: {time}\t'
                       'Epoch/Iter: [{epoch}/{Iter}]\t'
                       'loss: {loss:.4f}\t'
                       'acc: {accuracy:.4f}\t'
@@ -145,9 +149,11 @@ def main():
 
             if Iter % 1000 == 0:
                 model.eval()
-                prec = validate(A_val_loader, model, nn.CrossEntropyLoss(size_average=False), False)
-                prec_Ori_on_B = validate(B_val_loader, model, nn.CrossEntropyLoss(size_average=False), False)
-                prec_Ada_on_B = validate(B_val_loader, model, nn.CrossEntropyLoss(size_average=False), True)
+                acc_Ori_on_A = validate(A_val_loader, model, nn.CrossEntropyLoss(size_average=False), False)
+                acc_Ori_on_B = validate(B_val_loader, model, nn.CrossEntropyLoss(size_average=False), False)
+                acc_Ada_on_B = validate(B_val_loader, model, nn.CrossEntropyLoss(size_average=False), True)
+                prec_Ori_on_B = acc_Ori_on_B['avg_f1score']
+                prec_Ada_on_B = acc_Ada_on_B['avg_f1score']
 
                 is_best = prec_Ori_on_B > best_Ori_on_B
                 best_Ori_on_B = max(prec_Ori_on_B, best_Ori_on_B)
@@ -157,7 +163,7 @@ def main():
                 is_best = prec_Ada_on_B > best_Ada_on_B
                 best_Ada_on_B = max(prec_Ada_on_B, best_Ada_on_B)
                 if is_best:
-                    model.save('best_Ada_on_B')
+                    model.save('best_Ada_on_B', Iter=Iter, epoch=epoch, acc={'acc_Ori_on_A':acc_Ori_on_A, 'acc_Ori_on_B':acc_Ori_on_B, 'acc_Ada_on_B':acc_Ori_on_B})
                 model.train()
 
 
@@ -174,7 +180,7 @@ if __name__ == '__main__':
         'batch_size':10,
         'num_workers':10,
         'print_freq':10,
-        'device_ids':[1],
+        'device_ids':[0],
         'domainA': 'Lip',
         'domainB': 'Indoor',
         'weigths_pool': 'pretrain_models',
@@ -182,9 +188,12 @@ if __name__ == '__main__':
         'fineSizeH':241,
         'fineSizeW':121,
         'input_nc':3,
-        'name': 'v3_1',
+        'name': 'v3_1_1',
         'checkpoints_dir': 'checkpoints',
         'net_D': 'NoBNMultPathdilationNet',
         'use_lsgan': True,
+        'resume':None#'checkpoints/v3_1/',
     }
+    logger = Logger(
+        log_file='./log/' + args['name'] + '-' + time.strftime("%Y-%m-%d_%H:%M:%S", time.localtime()) + '.log')
     main()

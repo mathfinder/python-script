@@ -89,3 +89,13 @@ class ConfusionMatrix:
                 total_iou += I / U
                 count += 1
         return total_iou / count
+
+    def all_acc(self):
+        return {
+            'accuracy':self.accuracy(),
+            'fg_accuracy':self.fg_accuracy(),
+            'avg_precision':self.avg_precision(),
+            'avg_recall':self.avg_recall(),
+            'avg_f1score':self.avg_f1score(),
+            'mean_iou':self.mean_iou(),
+        }
