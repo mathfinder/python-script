@@ -1,3 +1,5 @@
 checkpoints
 datasets
 *.pth
+*.log
+*.pyc
