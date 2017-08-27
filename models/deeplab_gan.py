@@ -24,8 +24,8 @@ def weights_init(m):
 def define_D(which_netD):
     if which_netD == 'FFC':
         return networks.FFC()
-    elif which_netD == 'MultPathdilationNet':
-        return networks.MultPathdilationNet()
+    elif which_netD == 'NoBNMultPathdilationNet':
+        return networks.NoBNMultPathdilationNet()
     elif which_netD == 'SinglePathdilationSingleOutputNet':
         return networks.SinglePathdilationSingleOutputNet()
     elif which_netD == 'SinglePathdilationMultOutputNet':
@@ -48,8 +48,8 @@ class deeplabGan(BaseModel):
         self.netD = define_D(args['net_D']).cuda(device_id=args['device_ids'][0])
 
         self.deeplabPart1 = networks.DeeplabPool1().cuda(device_id=args['device_ids'][0])
-        self.deeplabPart2 = networks.DeeplabPool12Conv5_1().cuda(device_id=args['device_ids'][0])
-        self.deeplabPart3 = networks.DeeplabConv5_22Fc8_interp().cuda(device_id=args['device_ids'][0])
+        self.deeplabPart2 = networks.DeeplabPool12Pool5().cuda(device_id=args['device_ids'][0])
+        self.deeplabPart3 = networks.DeeplabPool52Fc8_interp().cuda(device_id=args['device_ids'][0])
 
         self.netG.apply(weights_init)
         self.netD.apply(weights_init)
