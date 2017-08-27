@@ -33,9 +33,9 @@ def define_D(which_netD):
     elif which_netD == 'NoBNSinglePathdilationMultOutputNet':
         return networks.NoBNSinglePathdilationMultOutputNet()
 
-class deeplabGanWithRefine(BaseModel):
+class deeplabGanS2TWithRefine(BaseModel):
     def name(self):
-        return 'deeplabGan'
+        return 'deeplabGanS2TWithRefine'
 
     def initialize(self, args):
         BaseModel.initialize(self, args)
@@ -138,9 +138,12 @@ class deeplabGanWithRefine(BaseModel):
         # Maintain pool5_B in this status
         self.pool5_B_input = Variable(self.deeplabPart2(self.deeplabPart1(self.B)).data)
 
-        self.pool5_A = self.deeplabPart2(self.deeplabPart1(self.A))
-        self.pool5_A_input =  Variable(self.feature_A.data)
-        self.predic_A = self.deeplabPart3(self.feature_A)
+        self.pool1_A = self.deeplabPart1(self.A)
+        self.pool1_A_input = Variable(self.pool1_A.data)
+
+        self.pool5_A = self.deeplabPart2(self.pool1_A)
+        self.pool5_A_input =  Variable(self.pool5_A.data)
+        self.predic_A = self.deeplabPart3(self.pool5_A)
         self.output = Variable(self.predic_A.data)
 
         self.loss_P = self.criterionCE(self.predic_A, self.A_label) / self.nb
@@ -148,7 +151,7 @@ class deeplabGanWithRefine(BaseModel):
 
 
     def backward_G(self):
-        self.pool5_A = self.pool5_A_input + self.netG(self.A)
+        self.pool5_A = self.pool5_A_input + self.netG(self.pool1_A_input)
         self.pool5_A_input = Variable(self.pool5_A.data)
         pred_fake = self.netD.forward(self.pool5_A)
 
@@ -169,7 +172,7 @@ class deeplabGanWithRefine(BaseModel):
     def backward_R(self):
         pool1 = self.deeplabPart1(self.A)
         self.predic_A_R = self.deeplabPart3(self.deeplabPart2(pool1) + self.netG(pool1))
-        self.loss_R = self.criterionCE(self.predic_A_R, self.A_label)
+        self.loss_R = self.criterionCE(self.predic_A_R, self.A_label) / self.nb
 
         self.loss_R.backward()
 

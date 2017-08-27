@@ -35,7 +35,7 @@ def define_D(which_netD):
 
 class deeplabGanWithRefine(BaseModel):
     def name(self):
-        return 'deeplabGan'
+        return 'deeplabGanWithRefine'
 
     def initialize(self, args):
         BaseModel.initialize(self, args)
