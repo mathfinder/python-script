@@ -30,6 +30,8 @@ def define_D(which_netD):
         return networks.SinglePathdilationSingleOutputNet()
     elif which_netD == 'SinglePathdilationMultOutputNet':
         return networks.SinglePathdilationMultOutputNet()
+    elif which_netD == 'NoBNSinglePathdilationMultOutputNet':
+        return networks.SinglePathdilationMultOutputNet()
 
 class deeplabGan(BaseModel):
     def name(self):
@@ -56,7 +58,7 @@ class deeplabGan(BaseModel):
         self.criterionAdv = networks.Advloss(use_lsgan=args['use_lsgan'], tensor=self.Tensor)
 
 
-        if args['resume']:
+        if not args['resume']:
             #initialize networks
             self.netG.apply(weights_init)
             self.netD.apply(weights_init)
