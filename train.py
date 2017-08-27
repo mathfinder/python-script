@@ -43,7 +43,7 @@ def train(train_loader, model, criterion, optimizer, epoch):
         input_var = torch.autograd.Variable(images)
         target_var = torch.autograd.Variable(labels)
         # compute output
-        output = model(input_var)
+        output = model.forward(input_var)
         loss = criterion(output, target_var)/args['batch_size']
         # compute gradient and do SGD step
         optimizer.zero_grad()
@@ -162,8 +162,8 @@ if __name__ == '__main__':
         'num_workers': 10,
         'print_freq': 10,
         'device_ids': [0],
-        'domainA': 'lip',
-        'domainB': 'indoor',
+        'domainA': 'Lip',
+        'domainB': 'Indoor',
         'weigths_pool': 'pretrain_models',
         'pretrain_model': 'deeplab.pth',
         'loadSizeH': 241,
