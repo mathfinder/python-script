@@ -2,7 +2,7 @@ import shutil
 import torch
 import time
 import torch.nn as nn
-from models.deeplab_feature_structure_adaptation import deeplabGanStructureAdaptation
+from models.deeplab_feature_structure_adaptation_with_refine import deeplabGanStructureAdaptationWithRefine
 from torch.autograd import Variable
 from torch.utils import data
 from loader.image_label_loader import imageLabelLoader
@@ -109,7 +109,7 @@ def main():
     B_val_loader = data.DataLoader(imageLabelLoader(args['data_path'], dataName=args['domainB'], phase='val'),
                                    batch_size=args['batch_size'],
                                    num_workers=args['num_workers'], shuffle=False)
-    model = deeplabGanStructureAdaptation()
+    model = deeplabGanStructureAdaptationWithRefine()
     model.initialize(args)
 
     # multi GPUS

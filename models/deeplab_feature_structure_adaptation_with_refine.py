@@ -30,14 +30,16 @@ def define_D(which_netD):
         return networks.SinglePathdilationSingleOutputNet()
     elif which_netD == 'SinglePathdilationMultOutputNet':
         return networks.SinglePathdilationMultOutputNet()
+    elif which_netD == 'NoBNMultPathdilationNet':
+        return networks.NoBNMultPathdilationNet()
 
 def define_D_structure(which_netD_structure, input_nc):
     if which_netD_structure == 'dcgan_D_multOut':
         return networks.dcgan_D_multOut(input_nc=input_nc)
 
-class deeplabGanStructureAdaptation(BaseModel):
+class deeplabGanStructureAdaptationWithRefine(BaseModel):
     def name(self):
-        return 'deeplabGanStructureAdaptation'
+        return 'deeplabGanStructureAdaptationWithRefine'
 
     def initialize(self, args):
         BaseModel.initialize(self, args)

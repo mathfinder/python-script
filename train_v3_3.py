@@ -192,7 +192,7 @@ if __name__ == '__main__':
         'input_nc':3,
         'name': 'v3_1',
         'checkpoints_dir': 'checkpoints',
-        'net_D': 'FFCFeature',
+        'net_D': 'NoBNMultPathdilationNet',
         'net_D_structure': 'dcgan_D_multOut',
         'use_lsgan': True,
     }
