@@ -22,8 +22,8 @@ def weights_init(m):
         m.weight.data.normal_(0.0, 0.02)
 
 def define_D(which_netD):
-    if which_netD == 'FFC':
-        return networks.FFC()
+    if which_netD == 'FFCFeature':
+        return networks.FFCFeature()
     elif which_netD == 'MultPathdilationNet':
         return networks.MultPathdilationNet()
     elif which_netD == 'SinglePathdilationSingleOutputNet':
@@ -31,13 +31,13 @@ def define_D(which_netD):
     elif which_netD == 'SinglePathdilationMultOutputNet':
         return networks.SinglePathdilationMultOutputNet()
 
-def define_D_structure(which_netD_structure):
+def define_D_structure(which_netD_structure, input_nc):
     if which_netD_structure == 'dcgan_D_multOut':
-        return networks.dcgan_D_multOut()
+        return networks.dcgan_D_multOut(input_nc=input_nc)
 
-class deeplabGan(BaseModel):
+class deeplabGanStructureAdaptation(BaseModel):
     def name(self):
-        return 'deeplabGan'
+        return 'deeplabGanStructureAdaptation'
 
     def initialize(self, args):
         BaseModel.initialize(self, args)
@@ -50,12 +50,12 @@ class deeplabGan(BaseModel):
 
         self.netG = networks.netG().cuda(device_id=args['device_ids'][0])
         self.netD = define_D(args['net_D']).cuda(device_id=args['device_ids'][0])
-        self.netG_structure = networks.netG_structure().cuda(device_id=args['device_ids'][0])
-        self.netD_structure = define_D_structure(args['net_D_structure']).cuda(device_id=args['device_ids'][0])
+        self.netG_structure = networks.netG_structure(output_nc=args['label_nums']).cuda(device_id=args['device_ids'][0])
+        self.netD_structure = define_D_structure(args['net_D_structure'],input_nc=args['label_nums']).cuda(device_id=args['device_ids'][0])
 
         self.deeplabPart1 = networks.DeeplabPool1().cuda(device_id=args['device_ids'][0])
-        self.deeplabPart2 = networks.DeeplabPool12Conv5_1().cuda(device_id=args['device_ids'][0])
-        self.deeplabPart3 = networks.DeeplabConv5_22Fc8_interp().cuda(device_id=args['device_ids'][0])
+        self.deeplabPart2 = networks.DeeplabPool12Pool5().cuda(device_id=args['device_ids'][0])
+        self.deeplabPart3 = networks.DeeplabPool52Fc8_interp().cuda(device_id=args['device_ids'][0])
 
         self.netG.apply(weights_init)
         self.netD.apply(weights_init)
@@ -166,7 +166,6 @@ class deeplabGan(BaseModel):
         pred_real = self.netD.forward(self.feature_A_input)
 
         loss_D_real = self.criterionAdv(pred_real, True)
-
         pred_fake = self.netD.forward(self.feature_B_input)
         loss_D_fake = self.criterionAdv(pred_fake, False)
 
@@ -176,19 +175,18 @@ class deeplabGan(BaseModel):
 
     def backward_G_S(self):
         self.resdual_S = self.netG_structure(self.feature_B_input)
-        self.predict_B = self.deeplabPart3(self.input_B_G) + self.resdual_S
+        self.predict_B = self.deeplabPart3(self.feature_B_input) + self.resdual_S
         self.predict_B_input = Variable(self.predict_B.data)
-        pred_fake = self.netD.forward(self.predict_B)
+        pred_fake = self.netD_structure.forward(self.predict_B)
 
         self.loss_G_S = self.criterionAdv(pred_fake, True)
         self.loss_G_S.backward()
 
     def backward_D_S(self):
-        pred_real = self.netD.forward(self.predic_A_input)
-
+        pred_real = self.netD_structure.forward(self.predic_A_input)
         loss_D_S_real = self.criterionAdv(pred_real, True)
 
-        pred_fake = self.netD.forward(self.predict_B_input)
+        pred_fake = self.netD_structure.forward(self.predict_B_input)
         loss_D_S_fake = self.criterionAdv(pred_fake, False)
 
         self.loss_D_S = (loss_D_S_real + loss_D_S_fake) * 0.5
