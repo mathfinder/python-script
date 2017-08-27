@@ -31,7 +31,7 @@ def define_D(which_netD):
     elif which_netD == 'SinglePathdilationMultOutputNet':
         return networks.SinglePathdilationMultOutputNet()
     elif which_netD == 'NoBNSinglePathdilationMultOutputNet':
-        return networks.SinglePathdilationMultOutputNet()
+        return networks.NoBNSinglePathdilationMultOutputNet()
 
 class deeplabGan(BaseModel):
     def name(self):
