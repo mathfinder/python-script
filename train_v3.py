@@ -41,7 +41,7 @@ def train(A_train_loader, B_train_loader, model, epoch):
             update_confusion_matrix(matrix, output.data, A_label)
 
             print('Time: {time}\t'
-                  'Epoch/Iter: [{epoch}/{iter}]\t'
+                  'Epoch/Iter: [{epoch}/{Iter}]\t'
                   'loss: {loss:.4f}\t'
                   'acc: {accuracy:.4f}\t'
                   'fg_acc: {fg_accuracy:.4f}\t'
@@ -51,23 +51,22 @@ def train(A_train_loader, B_train_loader, model, epoch):
                   'loss_G: {loss_G:.4f}\t'
                   'loss_D: {loss_D:.4f}\t'.format(
                 time=time.strftime("%Y-%m-%d_%H:%M:%S", time.localtime()),
-                epoch=epoch, iter=i+epoch*len(A_train_loader), loss=model.loss_P.data[0], accuracy=matrix.accuracy(),
+                epoch=epoch, Iter=i+epoch*len(A_train_loader), loss=model.loss_P.data[0], accuracy=matrix.accuracy(),
                 fg_accuracy=matrix.fg_accuracy(), avg_precision=matrix.avg_precision(),
                 avg_recall=matrix.avg_recall(), avg_f1core=matrix.avg_f1score(),
                 loss_G=model.loss_G.data[0], loss_D=model.loss_D.data[0]))
 
 
-def validate(val_loader, model, criterion, witch_domain):
+def validate(val_loader, model, criterion, adaptation):
     # switch to evaluate mode
     run_time = time.time()
     matrix = ConfusionMatrix(args['label_nums'])
     loss = 0
-    model.eval()
     for i, (images, labels) in enumerate(val_loader):
         labels = labels.cuda(async=True)
         target_var = torch.autograd.Variable(labels, volatile=True)
 
-        model.test(witch_domain, images)
+        model.test(adaptation, images)
         output = model.output
         loss += criterion(output, target_var)/args['batch_size']
         matrix = update_confusion_matrix(matrix, output.data, labels)
@@ -94,12 +93,12 @@ def main():
     if len(args['device_ids']) > 0:
         torch.cuda.set_device(args['device_ids'][0])
 
-    A_train_loader = data.DataLoader(imageLabelLoader(args['data_path'],dataName=args['domainA'], phase='train'), batch_size=args['batch_size'],
+    A_train_loader = data.DataLoader(imageLabelLoader(args['data_path'],dataName=args['domainA'], phase='train+5light'), batch_size=args['batch_size'],
                                   num_workers=args['num_workers'], shuffle=True)
     A_val_loader = data.DataLoader(imageLabelLoader(args['data_path'], dataName=args['domainA'], phase='val'), batch_size=args['batch_size'],
                                 num_workers=args['num_workers'], shuffle=False)
 
-    B_train_loader = data.DataLoader(imageLoader(args['data_path'], dataName=args['domainB'], phase='train'),
+    B_train_loader = data.DataLoader(imageLoader(args['data_path'], dataName=args['domainB'], phase='train+unlabel'),
                                      batch_size=args['batch_size'],
                                      num_workers=args['num_workers'], shuffle=True)
     B_val_loader = data.DataLoader(imageLabelLoader(args['data_path'], dataName=args['domainB'], phase='val'),
@@ -110,19 +109,56 @@ def main():
 
     # multi GPUS
     # model = torch.nn.DataParallel(model,device_ids=args['device_ids']).cuda()
-    best_prec = 0
+    best_Ori_on_B = 0
+    best_Ada_on_B = 0
+    Iter = 0
+    model.train()
     for epoch in range(args['n_epoch']):
-        train(A_train_loader, B_train_loader, model, epoch)
-        if epoch % 2 == 0:
-            prec = validate(A_val_loader, model, nn.CrossEntropyLoss(size_average=False), witch_domain='A')
-            prec = validate(B_val_loader, model, nn.CrossEntropyLoss(size_average=False), witch_domain='B')
-            is_best = prec > best_prec
-            best_prec = max(prec, best_prec)
-            model.save(epoch)
-            if is_best:
-                model.save('best')
+        # train(A_train_loader, B_train_loader, model, epoch)
+        # switch to train mode
+        for i, (A_image, A_label) in enumerate(A_train_loader):
+            Iter += 1
+            B_image = next(iter(B_train_loader))
+            model.set_input({'A': A_image, 'A_label': A_label, 'B': B_image})
+            model.forward()
+            model.optimize_parameters()
+            output = model.output
+            if i % args['print_freq'] == 0:
+                matrix = ConfusionMatrix()
+                update_confusion_matrix(matrix, output.data, A_label)
+                print('Time: {time}\t'
+                      'Epoch/Iter: [{epoch}/{Iter}]\t'
+                      'loss: {loss:.4f}\t'
+                      'acc: {accuracy:.4f}\t'
+                      'fg_acc: {fg_accuracy:.4f}\t'
+                      'avg_prec: {avg_precision:.4f}\t'
+                      'avg_rec: {avg_recall:.4f}\t'
+                      'avg_f1: {avg_f1core:.4f}\t'
+                      'loss_G: {loss_G:.4f}\t'
+                      'loss_D: {loss_D:.4f}\t'.format(
+                    time=time.strftime("%Y-%m-%d_%H:%M:%S", time.localtime()),
+                    epoch=epoch, Iter=Iter, loss=model.loss_P.data[0],
+                    accuracy=matrix.accuracy(),
+                    fg_accuracy=matrix.fg_accuracy(), avg_precision=matrix.avg_precision(),
+                    avg_recall=matrix.avg_recall(), avg_f1core=matrix.avg_f1score(),
+                    loss_G=model.loss_G.data[0], loss_D=model.loss_D.data[0]))
 
-        #train(A_train_loader, B_train_loader, model, epoch)
+            if Iter % 1000 == 0:
+                model.eval()
+                prec = validate(A_val_loader, model, nn.CrossEntropyLoss(size_average=False), False)
+                prec_Ori_on_B = validate(B_val_loader, model, nn.CrossEntropyLoss(size_average=False), False)
+                prec_Ada_on_B = validate(B_val_loader, model, nn.CrossEntropyLoss(size_average=False), True)
+
+                is_best = prec_Ori_on_B > best_Ori_on_B
+                best_Ori_on_B = max(prec_Ori_on_B, best_Ori_on_B)
+                if is_best:
+                    model.save('best_Ori_on_B')
+
+                is_best = prec_Ada_on_B > best_Ada_on_B
+                best_Ada_on_B = max(prec_Ada_on_B, best_Ada_on_B)
+                if is_best:
+                    model.save('best_Ada_on_B')
+                model.train()
 
 
 if __name__ == '__main__':
@@ -138,9 +174,9 @@ if __name__ == '__main__':
         'batch_size':10,
         'num_workers':10,
         'print_freq':10,
-        'device_ids':[0],
-        'domainA': 'lip',
-        'domainB': 'indoor',
+        'device_ids':[1],
+        'domainA': 'Lip',
+        'domainB': 'Indoor',
         'weigths_pool': 'pretrain_models',
         'pretrain_model': 'deeplab.pth',
         'fineSizeH':241,
@@ -148,8 +184,7 @@ if __name__ == '__main__':
         'input_nc':3,
         'name': 'v3_1',
         'checkpoints_dir': 'checkpoints',
-        'checkpoints_dir': 'checkpoints',
-        'net_D': 'MultPathdilationNet',
+        'net_D': 'NoBNMultPathdilationNet',
         'use_lsgan': True,
     }
     main()
