@@ -3,6 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.nn.init as init
 from torch.autograd import Variable
+import random
 ###############################################################################
 # Functions
 ###############################################################################
@@ -492,6 +493,47 @@ class MultPathdilationNet(nn.Module):
 
     def forward(self, x):
         return ( self.model_1(x) + self.model_2(x) + self.model_3(x) + self.model_4(x) ) / 4
+
+class RandomMultPathdilationNet(nn.Module):
+    def __init__(self):
+        super(RandomMultPathdilationNet, self).__init__()
+        input_nc = 512
+        ngf = 128
+        norm_layer = nn.InstanceNorm2d
+        padding_type = 'reflect'
+        use_dropout = 0
+        self.relu = nn.ReLU(inplace=True)
+
+        model_1 = [nn.Conv2d(512, 1024, 3, padding=6, dilation=6), norm_layer(1024), self.relu, nn.Dropout2d(0.5),
+                   nn.Conv2d(1024, 1024, 3, stride=2, padding=1), norm_layer(1024), self.relu, nn.Dropout2d(0.5),
+                   nn.Conv2d(1024, 1, 3, stride=2, padding=1)]
+        model_2 = [nn.Conv2d(512, 1024, 3, padding=12, dilation=12), norm_layer(1024), self.relu, nn.Dropout2d(0.5),
+                   nn.Conv2d(1024, 1024, 3, stride=2, padding=1), norm_layer(1024), self.relu, nn.Dropout2d(0.5),
+                   nn.Conv2d(1024, 1, 3, stride=2, padding=1)]
+        model_3 = [nn.Conv2d(512, 1024, 3, padding=18, dilation=18), norm_layer(1024), self.relu, nn.Dropout2d(0.5),
+                   nn.Conv2d(1024, 1024, 3, stride=2, padding=1), norm_layer(1024), self.relu, nn.Dropout2d(0.5),
+                   nn.Conv2d(1024, 1, 3, stride=2, padding=1)]
+        model_4 = [nn.Conv2d(512, 1024, 3, padding=24, dilation=24), norm_layer(1024), self.relu, nn.Dropout2d(0.5),
+                   nn.Conv2d(1024, 1024, 3, stride=2, padding=1), norm_layer(1024), self.relu, nn.Dropout2d(0.5),
+                   nn.Conv2d(1024, 1, 3, stride=2, padding=1)]
+
+        self.model_1 = nn.Sequential(*model_1)
+        self.model_2 = nn.Sequential(*model_2)
+        self.model_3 = nn.Sequential(*model_3)
+        self.model_4 = nn.Sequential(*model_4)
+
+
+    def forward(self, x):
+        which_D = random.uniform(0,1)
+        if which_D < 0.25:
+            return self.model_1(x)
+        elif which_D < 0.5:
+            return self.model_2(x)
+        elif which_D < 0.75:
+            return  self.model_3(x)
+        else:
+            return  self.model_4(x)
+
 
 class NoBNMultPathdilationNet(nn.Module):
     def __init__(self):

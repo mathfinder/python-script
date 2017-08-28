@@ -2,7 +2,7 @@ import shutil
 import torch
 import time
 import torch.nn as nn
-from models.deeplab_gan import deeplabGan
+from models.deeplab_gan2 import deeplabGan
 from torch.autograd import Variable
 from torch.utils import data
 from loader.image_label_loader import imageLabelLoader
@@ -156,12 +156,12 @@ def main():
                 is_best = prec_Ori_on_B > best_Ori_on_B
                 best_Ori_on_B = max(prec_Ori_on_B, best_Ori_on_B)
                 if is_best:
-                    model.save('best_Ori_on_B', Iter=Iter, epoch=epoch, acc={'acc_Ori_on_A':acc_Ori_on_A, 'acc_Ori_on_B':acc_Ori_on_B, 'acc_Ada_on_B':acc_Ori_on_B})
+                    model.save('best_Ori_on_B', Iter=Iter, epoch=epoch, acc={'acc_Ori_on_A':acc_Ori_on_A, 'acc_Ori_on_B':acc_Ori_on_B, 'acc_Ada_on_B':acc_Ada_on_B})
 
                 is_best = prec_Ada_on_B > best_Ada_on_B
                 best_Ada_on_B = max(prec_Ada_on_B, best_Ada_on_B)
                 if is_best:
-                    model.save('best_Ada_on_B', Iter=Iter, epoch=epoch, acc={'acc_Ori_on_A':acc_Ori_on_A, 'acc_Ori_on_B':acc_Ori_on_B, 'acc_Ada_on_B':acc_Ori_on_B})
+                    model.save('best_Ada_on_B', Iter=Iter, epoch=epoch, acc={'acc_Ori_on_A':acc_Ori_on_A, 'acc_Ori_on_B':acc_Ori_on_B, 'acc_Ada_on_B':acc_Ada_on_B})
                 model.train()
 
 
@@ -186,9 +186,9 @@ if __name__ == '__main__':
         'fineSizeH':241,
         'fineSizeW':121,
         'input_nc':3,
-        'name': 'v3_1_1',
+        'name': 'v3_random_D',
         'checkpoints_dir': 'checkpoints',
-        'net_D': 'NoBNSinglePathdilationMultOutputNet',
+        'net_D': 'RandomMultPathdilationNet',
         'use_lsgan': True,
         'resume':None#'checkpoints/v3_1/',
     }

@@ -157,12 +157,12 @@ def main():
                 is_best = prec_Ori_on_B > best_Ori_on_B
                 best_Ori_on_B = max(prec_Ori_on_B, best_Ori_on_B)
                 if is_best:
-                    model.save('best_Ori_on_B', Iter=Iter, epoch=epoch, acc={'acc_Ori_on_A':acc_Ori_on_A, 'acc_Ori_on_B':acc_Ori_on_B, 'acc_Ada_on_B':acc_Ori_on_B})
+                    model.save('best_Ori_on_B', Iter=Iter, epoch=epoch, acc={'acc_Ori_on_A':acc_Ori_on_A, 'acc_Ori_on_B':acc_Ori_on_B, 'acc_Ada_on_B':acc_Ada_on_B})
 
                 is_best = prec_Ada_on_B > best_Ada_on_B
                 best_Ada_on_B = max(prec_Ada_on_B, best_Ada_on_B)
                 if is_best:
-                    model.save('best_Ada_on_B', Iter=Iter, epoch=epoch, acc={'acc_Ori_on_A':acc_Ori_on_A, 'acc_Ori_on_B':acc_Ori_on_B, 'acc_Ada_on_B':acc_Ori_on_B})
+                    model.save('best_Ada_on_B', Iter=Iter, epoch=epoch, acc={'acc_Ori_on_A':acc_Ori_on_A, 'acc_Ori_on_B':acc_Ori_on_B, 'acc_Ada_on_B':acc_Ada_on_B})
                 model.train()
 
 
@@ -173,7 +173,7 @@ if __name__ == '__main__':
         'label_nums':12,
         'l_rate':1e-8,
         'lr_gan': 0.00001,
-        'lr_refine': 1e-7,
+        'lr_refine': 1e-6,
         'beta1': 0.5,
         'data_path':'datasets',
         'n_epoch':1000,
@@ -190,7 +190,7 @@ if __name__ == '__main__':
         'input_nc':3,
         'name': 'v3_6_s->t_Refine',
         'checkpoints_dir': 'checkpoints',
-        'net_D': 'NoBNSinglePathdilationMultOutputNet',
+        'net_D': 'RandomMultPathdilationNet',
         'use_lsgan': True,
         'resume':None#'checkpoints/v3_1/',
     }
