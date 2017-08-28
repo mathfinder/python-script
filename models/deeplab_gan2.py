@@ -34,6 +34,8 @@ def define_D(which_netD):
         return networks.NoBNSinglePathdilationMultOutputNet()
     elif which_netD == 'RandomMultPathdilationNet':
         return networks.RandomMultPathdilationNet()
+    elif which_netD == 'lsgan_D':
+        return networks.lsgan_D()
 
 class deeplabGan(BaseModel):
     def name(self):
