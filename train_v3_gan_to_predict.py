@@ -189,7 +189,7 @@ if __name__ == '__main__':
         'fineSizeH':241,
         'fineSizeW':121,
         'input_nc':3,
-        'name': 'v3_random_D',
+        'name': 'g2_lr_gan=0.00002_interval_G=1_interval_D_net_D=lsgan_D',
         'checkpoints_dir': 'checkpoints',
         'net_D': 'lsgan_D',
         'use_lsgan': True,
@@ -197,4 +197,8 @@ if __name__ == '__main__':
     }
     logger = Logger(
         log_file='./log/' + args['name'] + '-' + time.strftime("%Y-%m-%d_%H:%M:%S", time.localtime()) + '.log')
+    logger.info('------------ Options -------------\n')
+    for k, v in args.items():
+        logger.info('%s: %s' % (str(k), str(v)))
+    logger.info('-------------- End ----------------\n')
     main()
