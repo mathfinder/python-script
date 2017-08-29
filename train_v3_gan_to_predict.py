@@ -133,7 +133,7 @@ def main():
             model.set_input({'A': A_image, 'A_label': A_label, 'A_label_onehot':A_label_onehot, 'B': B_image})
             model.optimize_parameters()
             output = model.output
-            if i % args['print_freq'] == 0:
+            if (i+1) % args['print_freq'] == 0:
                 matrix = ConfusionMatrix()
                 update_confusion_matrix(matrix, output.data, A_label)
                 logger.info('Time: {time}\t'
@@ -153,7 +153,7 @@ def main():
                     avg_recall=matrix.avg_recall(), avg_f1core=matrix.avg_f1score(),
                     loss_G=model.loss_G.data[0], loss_D=model.loss_D.data[0]))
 
-            if Iter % 100 == 0:
+            if Iter % 1000 == 0:
                 model.eval()
                 acc_Ori_on_A = validate(A_val_loader, model, nn.CrossEntropyLoss(size_average=False), False)
                 acc_Ori_on_B = validate(B_val_loader, model, nn.CrossEntropyLoss(size_average=False), False)
@@ -175,7 +175,7 @@ if __name__ == '__main__':
         'lr_gan': 0.00002,
         'beta1': 0.5,
         'interval_G':1,
-        'interval_D':1,
+        'interval_D':2,
         'data_path':'datasets',
         'n_epoch':1000,
         'batch_size':10,
@@ -189,7 +189,7 @@ if __name__ == '__main__':
         'fineSizeH':241,
         'fineSizeW':121,
         'input_nc':3,
-        'name': 'g2_lr_gan=0.00002_interval_G=1_interval_D_net_D=lsgan_D',
+        'name': 'g2_lr_gan=0.00002_interval_G=1_interval_D=2_net_D=lsgan_D',
         'checkpoints_dir': 'checkpoints',
         'net_D': 'lsgan_D',
         'use_lsgan': True,
