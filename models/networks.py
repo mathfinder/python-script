@@ -534,7 +534,6 @@ class RandomMultPathdilationNet(nn.Module):
         else:
             return  self.model_4(x)
 
-
 class NoBNMultPathdilationNet(nn.Module):
     def __init__(self):
         super(NoBNMultPathdilationNet, self).__init__()
@@ -687,3 +686,51 @@ class dcgan_D_multOut(nn.Module):
     def forward(self, x):
 
         return self.model(x)
+
+class lsgan_D(nn.Module):
+    def __init__(self, input_nc=12, ngf=64, norm_layer=nn.BatchNorm2d, n_layers=4):
+        super(lsgan_D, self).__init__()
+        self.input_nc = input_nc
+        self.ngf = ngf
+        self.norm_layer = norm_layer
+        self.n_layers = n_layers
+
+        mult = 1
+        features = [nn.Conv2d(input_nc, ngf, 5, stride=2, padding=1), nn.LeakyReLU(negative_slope=0.2, inplace=True)]
+        for i in range(self.n_layers-1):
+            features = features + [nn.Conv2d(ngf*mult, ngf*mult*2, 5, stride=2, padding=1), norm_layer(ngf*mult*2), nn.LeakyReLU(negative_slope=0.2, inplace=True)]
+            mult *= 2
+
+        self.features = nn.Sequential(*features)
+
+        self.fc = nn.Sequential(nn.Linear(512 * 14 * 6, 1))
+
+
+    def forward(self, x):
+        x = self.features.forward(x)
+        x = x.view(x.size(0), -1)
+        x = self.fc(x)
+        return x
+
+class lsganMultOutput_D(nn.Module):
+    def __init__(self, input_nc=12, ngf=64, norm_layer=nn.BatchNorm2d, n_layers=4):
+        super(lsgan_D, self).__init__()
+        self.input_nc = input_nc
+        self.ngf = ngf
+        self.norm_layer = norm_layer
+        self.n_layers = n_layers
+
+        mult = 1
+        features = [nn.Conv2d(input_nc, ngf, 5, stride=2, padding=1), nn.LeakyReLU(negative_slope=0.2, inplace=True)]
+        for i in range(self.n_layers-1):
+            features = features + [nn.Conv2d(ngf*mult, ngf*mult*2, 5, stride=2, padding=1), norm_layer(ngf*mult*2), nn.LeakyReLU(negative_slope=0.2, inplace=True)]
+            mult *= 2
+
+        features += [nn.Conv2d(ngf*mult*2, 1, 5)]
+        self.features = nn.Sequential(*features)
+
+
+
+    def forward(self, x):
+        return self.features.forward(x)
+

@@ -2,16 +2,19 @@ import shutil
 import torch
 import time
 import torch.nn as nn
-from models.deeplab_gan_s2t_with_refine_4 import deeplabGanS2TWithRefine4
+from models.deeplab_classifier import deeplabClassifier
 from torch.autograd import Variable
 from torch.utils import data
 from loader.image_label_loader import imageLabelLoader
 from loader.image_loader import imageLoader
+from loader.label_loader import labelLoader
 from util.confusion_matrix import ConfusionMatrix
 import util.makedirs as makedirs
 import os
 import torchvision.models as models
+import matplotlib.pyplot as plt
 from util.log import Logger
+import numpy as np
 
 def save_checkpoint(state, filename):
     torch.save(state, filename)
@@ -62,7 +65,7 @@ def validate(val_loader, model, criterion, adaptation):
         labels = labels.cuda(async=True)
         target_var = torch.autograd.Variable(labels, volatile=True)
 
-        model.test(adaptation, images)
+        model.test(images)
         output = model.output
         loss += criterion(output, target_var)/args['batch_size']
         matrix = update_confusion_matrix(matrix, output.data, labels)
@@ -91,6 +94,10 @@ def main():
 
     A_train_loader = data.DataLoader(imageLabelLoader(args['data_path'],dataName=args['domainA'], phase='train'), batch_size=args['batch_size'],
                                   num_workers=args['num_workers'], shuffle=True)
+    A_label_train_loader = data.DataLoader(labelLoader(args['data_path'], dataName=args['domainA'], phase='train_onehot'),
+                                     batch_size=args['batch_size'],
+                                     num_workers=args['num_workers'], shuffle=True)
+
     A_val_loader = data.DataLoader(imageLabelLoader(args['data_path'], dataName=args['domainA'], phase='val'), batch_size=args['batch_size'],
                                 num_workers=args['num_workers'], shuffle=False)
 
@@ -100,7 +107,7 @@ def main():
     B_val_loader = data.DataLoader(imageLabelLoader(args['data_path'], dataName=args['domainB'], phase='val'),
                                    batch_size=args['batch_size'],
                                    num_workers=args['num_workers'], shuffle=False)
-    model = deeplabGanS2TWithRefine4()
+    model = deeplabClassifier()
     model.initialize(args)
 
     # multi GPUS
@@ -114,7 +121,6 @@ def main():
             print("=> no checkpoint found at '{}'".format(args['resume']))
 
     best_Ori_on_B = 0
-    best_Ada_on_B = 0
     model.train()
     for epoch in range(args['n_epoch']):
         # train(A_train_loader, B_train_loader, model, epoch)
@@ -122,7 +128,9 @@ def main():
         for i, (A_image, A_label) in enumerate(A_train_loader):
             Iter += 1
             B_image = next(iter(B_train_loader))
-            model.set_input({'A': A_image, 'A_label': A_label, 'B': B_image})
+            A_label_onehot = next(iter(A_label_train_loader))
+
+            model.set_input({'A': A_image, 'A_label': A_label, 'A_label_onehot':A_label_onehot, 'B': B_image})
             model.optimize_parameters()
             output = model.output
             if i % args['print_freq'] == 0:
@@ -131,7 +139,6 @@ def main():
                 logger.info('Time: {time}\t'
                       'Epoch/Iter: [{epoch}/{Iter}]\t'
                       'loss: {loss:.4f}\t'
-                      'loss_R: {loss_R:.4f}\t'
                       'acc: {accuracy:.4f}\t'
                       'fg_acc: {fg_accuracy:.4f}\t'
                       'avg_prec: {avg_precision:.4f}\t'
@@ -141,28 +148,21 @@ def main():
                       'loss_D: {loss_D:.4f}\t'.format(
                     time=time.strftime("%Y-%m-%d_%H:%M:%S", time.localtime()),
                     epoch=epoch, Iter=Iter, loss=model.loss_P.data[0],
-                    loss_R=model.loss_R.data[0], accuracy=matrix.accuracy(),
+                    accuracy=matrix.accuracy(),
                     fg_accuracy=matrix.fg_accuracy(), avg_precision=matrix.avg_precision(),
                     avg_recall=matrix.avg_recall(), avg_f1core=matrix.avg_f1score(),
                     loss_G=model.loss_G.data[0], loss_D=model.loss_D.data[0]))
 
-            if Iter % 1000 == 0:
+            if Iter % 100 == 0:
                 model.eval()
                 acc_Ori_on_A = validate(A_val_loader, model, nn.CrossEntropyLoss(size_average=False), False)
                 acc_Ori_on_B = validate(B_val_loader, model, nn.CrossEntropyLoss(size_average=False), False)
-                acc_Ada_on_B = validate(B_val_loader, model, nn.CrossEntropyLoss(size_average=False), True)
                 prec_Ori_on_B = acc_Ori_on_B['avg_f1score']
-                prec_Ada_on_B = acc_Ada_on_B['avg_f1score']
 
                 is_best = prec_Ori_on_B > best_Ori_on_B
                 best_Ori_on_B = max(prec_Ori_on_B, best_Ori_on_B)
                 if is_best:
-                    model.save('best_Ori_on_B', Iter=Iter, epoch=epoch, acc={'acc_Ori_on_A':acc_Ori_on_A, 'acc_Ori_on_B':acc_Ori_on_B, 'acc_Ada_on_B':acc_Ada_on_B})
-
-                is_best = prec_Ada_on_B > best_Ada_on_B
-                best_Ada_on_B = max(prec_Ada_on_B, best_Ada_on_B)
-                if is_best:
-                    model.save('best_Ada_on_B', Iter=Iter, epoch=epoch, acc={'acc_Ori_on_A':acc_Ori_on_A, 'acc_Ori_on_B':acc_Ori_on_B, 'acc_Ada_on_B':acc_Ada_on_B})
+                    model.save('best_Ori_on_B', Iter=Iter, epoch=epoch, acc={'acc_Ori_on_A':acc_Ori_on_A, 'acc_Ori_on_B':acc_Ori_on_B})
                 model.train()
 
 
@@ -172,15 +172,16 @@ if __name__ == '__main__':
         'test_init':False,
         'label_nums':12,
         'l_rate':1e-8,
-        'lr_gan': 0.00001,
-        'lr_refine': 1e-6,
+        'lr_gan': 0.00002,
         'beta1': 0.5,
+        'interval_G':1,
+        'interval_D':1,
         'data_path':'datasets',
         'n_epoch':1000,
         'batch_size':10,
         'num_workers':10,
         'print_freq':10,
-        'device_ids':[1],
+        'device_ids':[0],
         'domainA': 'Lip',
         'domainB': 'Indoor',
         'weigths_pool': 'pretrain_models',
@@ -188,9 +189,9 @@ if __name__ == '__main__':
         'fineSizeH':241,
         'fineSizeW':121,
         'input_nc':3,
-        'name': 'v3_s->t_Refine_4',
+        'name': 'v3_random_D',
         'checkpoints_dir': 'checkpoints',
-        'net_D': 'NoBNSinglePathdilationMultOutputNet',
+        'net_D': 'lsgan_D',
         'use_lsgan': True,
         'resume':None#'checkpoints/v3_1/',
     }

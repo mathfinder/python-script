@@ -55,7 +55,7 @@ class imageLoader(data.Dataset):
 
         return img
 
-    def getBatch(self):
+    def getBatch(self, index):
         self.now_idx = (self.now_idx + 1)%len()
         img_name = self.files[self.phase][index]
         img_path = self.root + '/' + self.dataName + '/' + 'image/' + self.phase + '/' + img_name + '.jpg'

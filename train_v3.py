@@ -171,7 +171,7 @@ if __name__ == '__main__':
         'test_init':False,
         'label_nums':12,
         'l_rate':1e-8,
-        'lr_gan': 0.00001,
+        'lr_gan': 0.0002,
         'beta1': 0.5,
         'data_path':'datasets',
         'n_epoch':1000,
@@ -188,7 +188,7 @@ if __name__ == '__main__':
         'input_nc':3,
         'name': 'v3_random_D',
         'checkpoints_dir': 'checkpoints',
-        'net_D': 'RandomMultPathdilationNet',
+        'net_D': 'lsgan_D',
         'use_lsgan': True,
         'resume':None#'checkpoints/v3_1/',
     }

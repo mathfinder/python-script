@@ -32,10 +32,12 @@ def define_D(which_netD):
         return networks.SinglePathdilationMultOutputNet()
     elif which_netD == 'NoBNSinglePathdilationMultOutputNet':
         return networks.NoBNSinglePathdilationMultOutputNet()
+    elif which_netD == 'lsgan_D':
+        return networks.lsgan_D()
 
-class deeplabGanS2TWithRefine(BaseModel):
+class deeplabGanS2TWithRefine4(BaseModel):
     def name(self):
-        return 'deeplabGanS2TWithRefine'
+        return 'deeplabGanS2TWithRefine4'
 
     def initialize(self, args):
         BaseModel.initialize(self, args)
@@ -94,9 +96,9 @@ class deeplabGanS2TWithRefine(BaseModel):
             {'params': get_parameters(self.deeplabPart3.fc8_4, 'bias'), 'lr': args['l_rate'] * 20},
         ], lr=args['l_rate'], momentum=0.9, weight_decay=5e-4)
 
-        netG_params = filter(lambda p: True, self.netG.parameters())
+        #netG_params = filter(lambda p: True, self.netG.parameters())
         self.optimizer_R = torch.optim.SGD([{'params': base_params},
-                                            {'params': netG_params, 'lr': args['l_rate'] * 100},
+                                            #{'params': netG_params, 'lr': args['l_rate'] * 100},
                                             {'params': get_parameters(self.deeplabPart3.fc8_1, 'weight'),
                                              'lr': args['l_rate'] * 10},
                                             {'params': get_parameters(self.deeplabPart3.fc8_2, 'weight'),
@@ -226,6 +228,7 @@ class deeplabGanS2TWithRefine(BaseModel):
         save_path = os.path.join(self.save_dir, save_filename)
         torch.save({
             'name':self.name(),
+            'opt':self.opt,
             'Iter': Iter,
             'epoch': epoch,
             'acc':acc,
@@ -252,7 +255,6 @@ class deeplabGanS2TWithRefine(BaseModel):
         self.optimizer_G.load_state_dict(checkpoint['optimizer_G'])
         self.optimizer_D.load_state_dict(checkpoint['optimizer_D'])
         self.optimizer_R.load_state_dict(checkpoint['optimizer_R'])
-
         for k,v in checkpoint['acc'].items():
             print('=================================================')
             print('accuracy: {0:.4f}\t'
