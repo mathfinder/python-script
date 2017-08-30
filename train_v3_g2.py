@@ -2,7 +2,7 @@ import shutil
 import torch
 import time
 import torch.nn as nn
-from models.deeplab_classifier import deeplabClassifier
+from models.deeplab_g2 import deeplabG2
 from torch.autograd import Variable
 from torch.utils import data
 from loader.image_label_loader import imageLabelLoader
@@ -94,7 +94,7 @@ def main():
 
     A_train_loader = data.DataLoader(imageLabelLoader(args['data_path'],dataName=args['domainA'], phase='train'), batch_size=args['batch_size'],
                                   num_workers=args['num_workers'], shuffle=True)
-    A_label_train_loader = data.DataLoader(labelLoader(args['data_path'], dataName=args['domainA'], phase='train_onehot'),
+    label_train_loader = data.DataLoader(labelLoader(args['data_path'], dataName=args['domainA'], phase='train_onehot'),
                                      batch_size=args['batch_size'],
                                      num_workers=args['num_workers'], shuffle=True)
 
@@ -107,30 +107,34 @@ def main():
     B_val_loader = data.DataLoader(imageLabelLoader(args['data_path'], dataName=args['domainB'], phase='val'),
                                    batch_size=args['batch_size'],
                                    num_workers=args['num_workers'], shuffle=False)
-    model = deeplabClassifier()
+    model = deeplabG2()
     model.initialize(args)
 
     # multi GPUS
     # model = torch.nn.DataParallel(model,device_ids=args['device_ids']).cuda()
     Iter = 0
+    Epoch = 0
     if args['resume']:
         if os.path.isfile(args['resume']):
             logger.info("=> loading checkpoint '{}'".format(args['resume']))
-            model.load(args['resume'])
+            Iter, Epoch = model.load(args['resume'])
         else:
             print("=> no checkpoint found at '{}'".format(args['resume']))
 
     best_Ori_on_B = 0
     model.train()
-    for epoch in range(args['n_epoch']):
+    for epoch in range(Epoch, args['n_epoch']):
         # train(A_train_loader, B_train_loader, model, epoch)
         # switch to train mode
         for i, (A_image, A_label) in enumerate(A_train_loader):
             Iter += 1
             B_image = next(iter(B_train_loader))
-            A_label_onehot = next(iter(A_label_train_loader))
+            if Iter % args['interval_D'] == 0 and args['if_adv_train']:
+                label_onehot = next(iter(label_train_loader))
+                model.set_input({'A': A_image, 'A_label': A_label, 'label_onehot':label_onehot, 'B': B_image})
+            else:
+                model.set_input({'A': A_image, 'A_label': A_label, 'B': B_image})
 
-            model.set_input({'A': A_image, 'A_label': A_label, 'A_label_onehot':A_label_onehot, 'B': B_image})
             model.optimize_parameters()
             output = model.output
             if (i+1) % args['print_freq'] == 0:
@@ -181,7 +185,7 @@ if __name__ == '__main__':
         'batch_size':10,
         'num_workers':10,
         'print_freq':100,
-        'device_ids':[0],
+        'device_ids':[1],
         'domainA': 'Lip',
         'domainB': 'Indoor',
         'weigths_pool': 'pretrain_models',
@@ -189,11 +193,12 @@ if __name__ == '__main__':
         'fineSizeH':241,
         'fineSizeW':121,
         'input_nc':3,
-        'name': 'g2_lr_gan=0.0000002_interval_G=5_interval_D=10_net_D=lsganMultOutput_D',
+        'name': 'g2_lr_gan=0.0000002_interval_G=5_interval_D=10_net_D=lsganMultOutput_D_resume',
         'checkpoints_dir': 'checkpoints',
         'net_D': 'lsganMultOutput_D',
         'use_lsgan': True,
-        'resume':None#'checkpoints/v3_1/',
+        'resume':'checkpoints/g2_lr_gan=0.0000002_interval_G=5_interval_D=10_net_D=lsganMultOutput_D/best_Ori_on_B_model.pth',#'checkpoints/v3_1/',
+        'if_adv_train':False
     }
     logger = Logger(
         log_file='./log/' + args['name'] + '-' + time.strftime("%Y-%m-%d_%H:%M:%S", time.localtime()) + '.log')

@@ -40,12 +40,13 @@ def define_D(which_netD):
         return networks.lsganMultOutput_D()
 
 
-class deeplabClassifier(BaseModel):
+class deeplabG2(BaseModel):
     def name(self):
-        return 'deeplabClassifier'
+        return 'deeplabG2'
 
     def initialize(self, args):
         BaseModel.initialize(self, args)
+        self.if_adv_train = args['if_adv_train']
         self.Iter = 0
         self.interval_G = args['interval_G']
         self.interval_D = args['interval_D']
@@ -55,7 +56,9 @@ class deeplabClassifier(BaseModel):
         self.input_A = self.Tensor(self.nb, args['input_nc'], sizeH, sizeW)
         self.input_B = self.Tensor(self.nb, args['input_nc'], sizeH, sizeW)
         self.input_A_label = torch.cuda.LongTensor(self.nb, 1, sizeH, sizeW)
-        self.input_A_label_onehot =  self.Tensor(self.nb, args['label_nums'], sizeH, sizeW)
+        self.input_label_onehot =  self.Tensor(self.nb, args['label_nums'], sizeH, sizeW)
+        self.loss_G = Variable()
+        self.loss_D = Variable()
 
         #self.netG = networks.netG().cuda(device_id=args['device_ids'][0])
         self.netD = define_D(args['net_D']).cuda(device_id=args['device_ids'][0])
@@ -119,17 +122,19 @@ class deeplabClassifier(BaseModel):
         self.input = input
         input_A = input['A']
         input_A_label = input['A_label']
-        input_A_label_onehot = input['A_label_onehot']
         input_B = input['B']
         self.input_A.resize_(input_A.size()).copy_(input_A)
         self.input_A_label.resize_(input_A_label.size()).copy_(input_A_label)
-        self.input_A_label_onehot.resize_(input_A_label_onehot.size()).copy_(input_A_label_onehot)
         self.input_B.resize_(input_B.size()).copy_(input_B)
+
+        if input.has_key('label_onehot'):
+            input_label_onehot = input['label_onehot']
+            self.input_label_onehot.resize_(input_label_onehot.size()).copy_(input_label_onehot)
 
     def forward(self):
         self.A = Variable(self.input_A)
         self.A_label = Variable(self.input_A_label)
-        self.A_label_onehot = Variable(self.input_A_label_onehot)
+        self.label_onehot = Variable(self.input_label_onehot)
         self.B = Variable(self.input_B)
 
     # used in test time, no backprop
@@ -156,8 +161,8 @@ class deeplabClassifier(BaseModel):
         self.loss_G.backward()
 
     def backward_D(self):
-        #self.A_label_onehot = Variable(self.A_label_onehot.data)
-        pred_real = self.netD.forward(self.A_label_onehot)
+        #self.label_onehot = Variable(self.label_onehot.data)
+        pred_real = self.netD.forward(self.label_onehot)
         loss_D_real = self.criterionAdv(pred_real, True)
 
         self.predic_B = Variable(self.predic_B.data)
@@ -177,12 +182,12 @@ class deeplabClassifier(BaseModel):
         self.optimizer_P.zero_grad()
         self.backward_P()
         self.optimizer_P.step()
-        if self.Iter % self.interval_G == 0:
+        if self.Iter % self.interval_G == 0 and self.if_adv_train:
             # G
             self.optimizer_G.zero_grad()
             self.backward_G()
             self.optimizer_G.step()
-        if self.Iter % self.interval_D == 0:
+        if self.Iter % self.interval_D == 0 and self.if_adv_train:
             # D
             self.optimizer_D.zero_grad()
             self.backward_D()
@@ -222,15 +227,17 @@ class deeplabClassifier(BaseModel):
         self.optimizer_P.load_state_dict(checkpoint['optimizer_P'])
         self.optimizer_G.load_state_dict(checkpoint['optimizer_G'])
         self.optimizer_D.load_state_dict(checkpoint['optimizer_D'])
-        for k,v in checkpoint['acc']:
+        for k,v in checkpoint['acc'].items():
             print('=================================================')
-            print('accuracy: {1:.4f}\t'
-                  'fg_accuracy: {2:.4f}\t'
-                  'avg_precision: {3:.4f}\t'
-                  'avg_recall: {4:.4f}\t'
-                  'avg_f1score: {5:.4f}\t'
+            print('accuracy: {0:.4f}\t'
+                  'fg_accuracy: {1:.4f}\t'
+                  'avg_precision: {2:.4f}\t'
+                  'avg_recall: {3:.4f}\t'
+                  'avg_f1score: {4:.4f}\t'
                   .format(v['accuracy'],v['fg_accuracy'],v['avg_precision'], v['avg_recall'], v['avg_f1score']))
             print('=================================================')
+
+        return checkpoint['Iter'], checkpoint['epoch']
 
     # helper loading function that can be used by subclasses
     def load_network(self, network, network_label, epoch_label):

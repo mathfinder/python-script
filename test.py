@@ -1,7 +1,7 @@
 import os
 from torch.utils import data
 from loader.image_label_loader import imageLabelLoader
-from models.deeplab_gan_s2t_with_refine_4 import deeplabGanS2TWithRefine4
+from models.deeplab_g2 import deeplabG2
 from util.confusion_matrix import ConfusionMatrix
 import torch
 import numpy as np
@@ -108,16 +108,16 @@ def main():
     test_loader = data.DataLoader(imageLabelLoader(args['data_path'], dataName=args['domainB'], phase='test'),
                                    batch_size=args['batch_size'],
                                    num_workers=args['num_workers'], shuffle=False)
-    gym = deeplabGanS2TWithRefine4()
+    gym = deeplabG2()
     gym.initialize(args)
-    gym.load('/home/ben/mathfinder/PROJECT/AAAI2017/our_Method/v3/deeplab_feature_adaptation/checkpoints/v3_s->t_Refine_4/best_Ori_on_B_model.pth')
+    gym.load('/home/ben/mathfinder/PROJECT/AAAI2017/our_Method/v3/deeplab_feature_adaptation/checkpoints/g2_lr_gan=0.0000002_interval_G=5_interval_D=10_net_D=lsganMultOutput_D/best_Ori_on_B_model.pth')
     gym.eval()
     matrix = ConfusionMatrix(args['label_nums'])
     for i, (image, label) in enumerate(test_loader):
         label = label.cuda(async=True)
         target_var = torch.autograd.Variable(label, volatile=True)
 
-        gym.test(False, image)
+        gym.test(image)
         output = gym.output
 
         """
@@ -165,8 +165,11 @@ if __name__ == "__main__":
         'input_nc':3,
         'name': 'v3_s->t_Refine_4',
         'checkpoints_dir': 'checkpoints',
-        'net_D': 'NoBNSinglePathdilationMultOutputNet',
+        'net_D': 'lsganMultOutput_D',
         'use_lsgan': True,
-        'resume':None#'checkpoints/v3_1/',
+        'resume':None,#'checkpoints/v3_1/',,
+        'if_adv_train':True,
+        'interval_G':5,
+        'interval_D':10,
     }
     main()

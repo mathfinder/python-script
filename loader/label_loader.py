@@ -18,12 +18,6 @@ class labelLoader(data.Dataset):
         self.phase = phase
         self.files = collections.defaultdict(list)
         self.now_idx = 0
-        """
-        for phase in ['train', 'val', 'train+unlabel']:
-            file_list = tuple(open(root + '/' + dataName + '/' + phase + '.txt', 'r'))
-            file_list = [id_.rstrip() for id_ in file_list]
-            self.files[phase] = file_list
-        """
         file_list = tuple(open(root + '/' + dataName + '/' + self.phase + '.txt', 'r'))
         file_list = [id_.rstrip() for id_ in file_list]
         self.files[self.phase] = file_list
@@ -48,7 +42,6 @@ class labelLoader(data.Dataset):
 
         lbl = np.load(lbl_path)
         lbl = lbl.copy()
-
         lbl = torch.from_numpy(lbl).float()
 
         return lbl

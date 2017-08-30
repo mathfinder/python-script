@@ -714,7 +714,7 @@ class lsgan_D(nn.Module):
 
 class lsganMultOutput_D(nn.Module):
     def __init__(self, input_nc=12, ngf=64, norm_layer=nn.BatchNorm2d, n_layers=4):
-        super(lsgan_D, self).__init__()
+        super(lsganMultOutput_D, self).__init__()
         self.input_nc = input_nc
         self.ngf = ngf
         self.norm_layer = norm_layer
@@ -726,7 +726,7 @@ class lsganMultOutput_D(nn.Module):
             features = features + [nn.Conv2d(ngf*mult, ngf*mult*2, 5, stride=2, padding=1), norm_layer(ngf*mult*2), nn.LeakyReLU(negative_slope=0.2, inplace=True)]
             mult *= 2
 
-        features += [nn.Conv2d(ngf*mult*2, 1, 5)]
+        features += [nn.Conv2d(ngf*mult, 1, 5)]
         self.features = nn.Sequential(*features)
 
 
