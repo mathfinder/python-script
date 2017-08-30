@@ -168,6 +168,12 @@ def main():
                 if is_best:
                     model.save('best_Ori_on_B', Iter=Iter, epoch=epoch, acc={'acc_Ori_on_A':acc_Ori_on_A, 'acc_Ori_on_B':acc_Ori_on_B})
                 model.train()
+        if args['if_adaptive'] and epoch >= 25 and best_Ori_on_B>=0.505:
+            args['if_adaptive'] = False
+            for param_group in model.optimizer_D.param_groups:
+                param_group['lr'] = args['lr_gan'] * 0.1
+            for param_group in model.optimizer_G.param_groups:
+                param_group['lr'] = args['lr_gan'] * 0.1
 
 
 if __name__ == '__main__':
@@ -198,7 +204,8 @@ if __name__ == '__main__':
         'net_D': 'lsganMultOutput_D',
         'use_lsgan': True,
         'resume':'checkpoints/g2_lr_gan=0.0000002_interval_G=5_interval_D=10_net_D=lsganMultOutput_D/best_Ori_on_B_model.pth',#'checkpoints/v3_1/',
-        'if_adv_train':False
+        'if_adv_train':True,
+        'if_adaptive':True,
     }
     logger = Logger(
         log_file='./log/' + args['name'] + '-' + time.strftime("%Y-%m-%d_%H:%M:%S", time.localtime()) + '.log')
