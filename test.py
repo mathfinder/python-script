@@ -1,7 +1,7 @@
 import os
 from torch.utils import data
 from loader.image_label_loader import imageLabelLoader
-from models.deeplab_g2 import deeplabG2
+from models.deeplab_g1_g2 import deeplabG1G2
 from util.confusion_matrix import ConfusionMatrix
 import torch
 import numpy as np
@@ -108,9 +108,9 @@ def main():
     test_loader = data.DataLoader(imageLabelLoader(args['data_path'], dataName=args['domainB'], phase='test'),
                                    batch_size=args['batch_size'],
                                    num_workers=args['num_workers'], shuffle=False)
-    gym = deeplabG2()
+    gym = deeplabG1G2()
     gym.initialize(args)
-    gym.load('/home/ben/mathfinder/PROJECT/AAAI2017/our_Method/v3/deeplab_feature_adaptation/checkpoints/g2_lr_gan=0.0000002_interval_G=5_interval_D=10_net_D=lsganMultOutput_D/best_Ori_on_B_model.pth')
+    gym.load('/home/ben/mathfinder/PROJECT/AAAI2017/our_Method/v3/deeplab_feature_adaptation/checkpoints/lr_g1=0.00001_lr_g2=0.00000002_interval_g1=5_interval_d1=5_net_D=lsganMultOutput_D_if_adaptive=False/best_Ori_on_B_model.pth')
     gym.eval()
     matrix = ConfusionMatrix(args['label_nums'])
     for i, (image, label) in enumerate(test_loader):
@@ -120,23 +120,6 @@ def main():
         gym.test(image)
         output = gym.output
 
-        """
-        output = output.view(output.size()[1:]).data.cpu().numpy()
-        output = output.argmax(0)
-        output = output[:,:,np.newaxis]
-        output = color(output)
-        image = image.view(image.size()[1:]).cpu().numpy()
-        image = image.transpose((1,2,0))
-
-        label = label.view(label.size()[1:]).cpu().numpy()
-        label = label[:, :, np.newaxis]
-        label = color(label)
-
-
-        output = np.concatenate((image, label, output),1)
-
-        scipy.misc.imsave('/home/ben/mathfinder/PROJECT/AAAI2017/our_Method/v3/deeplab_feature_adaptation/datasets/bk/lip_redict/{}.png'.format(i),output)
-        """
         matrix = update_confusion_matrix(matrix, output.data, label)
     print(matrix.all_acc())
 
@@ -145,17 +128,20 @@ if __name__ == "__main__":
     global args
     args = {
         'test_init':False,
+        'test_init':False,
         'label_nums':12,
         'l_rate':1e-8,
-        'lr_gan': 0.00001,
-        'lr_refine': 1e-6,
+        'lr_g1': 0.00001,
+        'lr_g2': 0.00000002,
         'beta1': 0.5,
+        'interval_g2':5,
+        'interval_d2':5,
         'data_path':'datasets',
         'n_epoch':1000,
-        'batch_size':1,
+        'batch_size':10,
         'num_workers':10,
-        'print_freq':10,
-        'device_ids':[1],
+        'print_freq':20,
+        'device_ids':[0],
         'domainA': 'Lip',
         'domainB': 'Indoor',
         'weigths_pool': 'pretrain_models',
@@ -163,13 +149,13 @@ if __name__ == "__main__":
         'fineSizeH':241,
         'fineSizeW':121,
         'input_nc':3,
-        'name': 'v3_s->t_Refine_4',
+        'name': 'lr_g1=0.00001_lr_g2=0.00000002_interval_g1=5_interval_d1=5_net_D=lsganMultOutput_D_if_adaptive=False',
         'checkpoints_dir': 'checkpoints',
-        'net_D': 'lsganMultOutput_D',
+        'net_d1': 'NoBNSinglePathdilationMultOutputNet',
+        'net_d2': 'lsganMultOutput_D',
         'use_lsgan': True,
-        'resume':None,#'checkpoints/v3_1/',,
+        'resume':None,#'checkpoints/g2_lr_gan=0.0000002_interval_G=5_interval_D=10_net_D=lsganMultOutput_D/best_Ori_on_B_model.pth',#'checkpoints/v3_1/',
         'if_adv_train':True,
-        'interval_G':5,
-        'interval_D':10,
+        'if_adaptive':False,
     }
     main()

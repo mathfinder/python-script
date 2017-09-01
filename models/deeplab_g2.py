@@ -255,6 +255,8 @@ class deeplabG2(BaseModel):
         self.optimizer_D.load_state_dict(checkpoint['optimizer_D'])
         for k,v in checkpoint['acc'].items():
             print('=================================================')
+            if k == 'acc_Ori_on_B':
+                best_f1 = v['avg_f1score']
             print('accuracy: {0:.4f}\t'
                   'fg_accuracy: {1:.4f}\t'
                   'avg_precision: {2:.4f}\t'
@@ -263,7 +265,7 @@ class deeplabG2(BaseModel):
                   .format(v['accuracy'],v['fg_accuracy'],v['avg_precision'], v['avg_recall'], v['avg_f1score']))
             print('=================================================')
 
-        return checkpoint['Iter'], checkpoint['epoch']
+        return checkpoint['Iter'], checkpoint['epoch'], best_f1
 
     # helper loading function that can be used by subclasses
     def load_network(self, network, network_label, epoch_label):

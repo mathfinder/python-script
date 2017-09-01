@@ -2,7 +2,7 @@ import shutil
 import torch
 import time
 import torch.nn as nn
-from models.deeplab_g2 import deeplabG2
+from models.deeplab_g1_g2 import deeplabG1G2
 from torch.autograd import Variable
 from torch.utils import data
 from loader.image_label_loader import imageLabelLoader
@@ -94,7 +94,7 @@ def main():
 
     A_train_loader = data.DataLoader(imageLabelLoader(args['data_path'],dataName=args['domainA'], phase='train'), batch_size=args['batch_size'],
                                   num_workers=args['num_workers'], shuffle=True)
-    label_train_loader = data.DataLoader(labelLoader(args['data_path'], dataName=args['domainA'], phase='train_iou_0.4_onehot'),
+    label_train_loader = data.DataLoader(labelLoader(args['data_path'], dataName=args['domainA'], phase='train_onehot'),
                                      batch_size=args['batch_size'],
                                      num_workers=args['num_workers'], shuffle=True)
 
@@ -107,7 +107,7 @@ def main():
     B_val_loader = data.DataLoader(imageLabelLoader(args['data_path'], dataName=args['domainB'], phase='val'),
                                    batch_size=args['batch_size'],
                                    num_workers=args['num_workers'], shuffle=False)
-    model = deeplabG2()
+    model = deeplabG1G2()
     model.initialize(args)
 
     # multi GPUS
@@ -130,7 +130,7 @@ def main():
         for i, (A_image, A_label) in enumerate(A_train_loader):
             Iter += 1
             B_image = next(iter(B_train_loader))
-            if Iter % args['interval_D'] == 0 and args['if_adv_train']:
+            if Iter % args['interval_d2'] == 0 and args['if_adv_train']:
                 label_onehot = next(iter(label_train_loader))
                 model.set_input({'A': A_image, 'A_label': A_label, 'label_onehot':label_onehot, 'B': B_image})
             else:
@@ -149,14 +149,18 @@ def main():
                       'avg_prec: {avg_precision:.4f}\t'
                       'avg_rec: {avg_recall:.4f}\t'
                       'avg_f1: {avg_f1core:.4f}\t'
-                      'loss_G: {loss_G:.4f}\t'
-                      'loss_D: {loss_D:.4f}\t'.format(
+                      'loss_G1: {loss_G1:.4f}\t'
+                      'loss_D1: {loss_D1:.4f}\t'
+                      'loss_G2: {loss_G2:.4f}\t'
+                      'loss_D2: {loss_D2:.4f}\t'
+                    .format(
                     time=time.strftime("%Y-%m-%d_%H:%M:%S", time.localtime()),
                     epoch=epoch, Iter=Iter, loss=model.loss_P.data[0],
                     accuracy=matrix.accuracy(),
                     fg_accuracy=matrix.fg_accuracy(), avg_precision=matrix.avg_precision(),
                     avg_recall=matrix.avg_recall(), avg_f1core=matrix.avg_f1score(),
-                    loss_G=model.loss_G.data[0], loss_D=model.loss_D.data[0]))
+                    loss_G1=model.loss_G1.data[0], loss_D1=model.loss_D1.data[0],
+                    loss_G2=model.loss_G2.data[0], loss_D2=model.loss_D2.data[0]))
 
             if Iter % 1000 == 0:
                 model.eval()
@@ -168,15 +172,14 @@ def main():
                 best_Ori_on_B = max(prec_Ori_on_B, best_Ori_on_B)
                 if is_best:
                     model.save('best_Ori_on_B', Iter=Iter, epoch=epoch, acc={'acc_Ori_on_A':acc_Ori_on_A, 'acc_Ori_on_B':acc_Ori_on_B})
+                elif prec_Ori_on_B > 0.503:
+                    model.save('Iter_{}'.format(Iter), Iter=Iter, epoch=epoch,
+                               acc={'acc_Ori_on_A': acc_Ori_on_A, 'acc_Ori_on_B': acc_Ori_on_B})
                 model.train()
-                if not args['if_adaptive']:
-                    print('win')
-        if args['if_adaptive'] and epoch >= 25 and prec_Ori_on_B>=0.505:
-            args['if_adaptive'] = False
-            for param_group in model.optimizer_D.param_groups:
-                param_group['lr'] = args['lr_gan'] * 0.1
-            for param_group in model.optimizer_G.param_groups:
-                param_group['lr'] = args['lr_gan'] * 0.1
+        if args['if_adaptive'] and (epoch+1) % 30 == 0:
+            model.update_learning_rate()
+
+
 
 
 if __name__ == '__main__':
@@ -185,15 +188,16 @@ if __name__ == '__main__':
         'test_init':False,
         'label_nums':12,
         'l_rate':1e-8,
-        'lr_gan': 0.00000002,
+        'lr_g1': 0.00001,
+        'lr_g2': 0.00000002,
         'beta1': 0.5,
-        'interval_G':5,
-        'interval_D':5,
+        'interval_g2':5,
+        'interval_d2':5,
         'data_path':'datasets',
         'n_epoch':1000,
         'batch_size':10,
-        'num_workers':10,
-        'print_freq':100,
+        'num_workers':3,
+        'print_freq':10,
         'device_ids':[1],
         'domainA': 'Lip',
         'domainB': 'Indoor',
@@ -202,9 +206,10 @@ if __name__ == '__main__':
         'fineSizeH':241,
         'fineSizeW':121,
         'input_nc':3,
-        'name': 'train_iou0.4_onehot_g2_lr_gan=0.00000002_interval_G=5_interval_D=5_net_D=lsganMultOutput_D',
+        'name': 'lr_g1=0.00001_lr_g2=0.00000002_interval_g1=5_interval_d1=5_net_D=lsganMultOutput_D_if_adaptive=True',
         'checkpoints_dir': 'checkpoints',
-        'net_D': 'lsganMultOutput_D',
+        'net_d1': 'NoBNSinglePathdilationMultOutputNet',
+        'net_d2': 'lsganMultOutput_D',
         'use_lsgan': True,
         'resume':None,#'checkpoints/g2_lr_gan=0.0000002_interval_G=5_interval_D=10_net_D=lsganMultOutput_D/best_Ori_on_B_model.pth',#'checkpoints/v3_1/',
         'if_adv_train':True,
