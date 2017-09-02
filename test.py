@@ -110,7 +110,7 @@ def main():
                                    num_workers=args['num_workers'], shuffle=False)
     gym = deeplabG1G2()
     gym.initialize(args)
-    gym.load('/home/ben/mathfinder/PROJECT/AAAI2017/our_Method/v3/deeplab_feature_adaptation/checkpoints/lr_g1=0.00001_lr_g2=0.00000002_interval_g1=5_interval_d1=5_net_D=lsganMultOutput_D_if_adaptive=False/best_Ori_on_B_model.pth')
+    gym.load('/home/ben/mathfinder/PROJECT/AAAI2017/our_Method/v3/deeplab_feature_adaptation/checkpoints/v3_s->t_Refine_4/best_Ori_on_B_model.pth')
     gym.eval()
     matrix = ConfusionMatrix(args['label_nums'])
     for i, (image, label) in enumerate(test_loader):
