@@ -115,11 +115,14 @@ def main():
     Iter = 0
     Epoch = 0
     best_Ori_on_B = 0
+    prec_Ori_on_B = 0
     if args['resume']:
         if os.path.isfile(args['resume']):
             logger.info("=> loading checkpoint '{}'".format(args['resume']))
             Iter, Epoch, best_Ori_on_B = model.load(args['resume'])
             prec_Ori_on_B = best_Ori_on_B
+            if (args['if_adaptive'] and (Epoch + 1) % 30 == 0) or prec_Ori_on_B > 0.515:
+                model.update_learning_rate()
         else:
             print("=> no checkpoint found at '{}'".format(args['resume']))
 
@@ -172,11 +175,11 @@ def main():
                 best_Ori_on_B = max(prec_Ori_on_B, best_Ori_on_B)
                 if is_best:
                     model.save('best_Ori_on_B', Iter=Iter, epoch=epoch, acc={'acc_Ori_on_A':acc_Ori_on_A, 'acc_Ori_on_B':acc_Ori_on_B})
-                elif prec_Ori_on_B > 0.503:
+                elif prec_Ori_on_B > 0.51:
                     model.save('Iter_{}'.format(Iter), Iter=Iter, epoch=epoch,
                                acc={'acc_Ori_on_A': acc_Ori_on_A, 'acc_Ori_on_B': acc_Ori_on_B})
                 model.train()
-        if args['if_adaptive'] and (epoch+1) % 30 == 0:
+        if (args['if_adaptive'] and (epoch+1) % 30 == 0) or prec_Ori_on_B > 0.515:
             model.update_learning_rate()
 
 
@@ -196,8 +199,8 @@ if __name__ == '__main__':
         'data_path':'datasets',
         'n_epoch':1000,
         'batch_size':10,
-        'num_workers':6,
-        'print_freq':10,
+        'num_workers':10,
+        'print_freq':100,
         'device_ids':[1],
         'domainA': 'Lip',
         'domainB': 'Indoor',
@@ -206,12 +209,12 @@ if __name__ == '__main__':
         'fineSizeH':241,
         'fineSizeW':121,
         'input_nc':3,
-        'name': 'lr_g1=0.00001_lr_g2=0.00000001_interval_g1=6_interval_d1=6_net_D=lsganMultOutput_D_if_adaptive=True',
+        'name': 'lr_g1=0.00001_lr_g2=0.00000001_interval_g1=6_interval_d1=6_net_D=lsganMultOutput_D_if_adaptive=True_resume',
         'checkpoints_dir': 'checkpoints',
         'net_d1': 'NoBNSinglePathdilationMultOutputNet',
         'net_d2': 'lsganMultOutput_D',
         'use_lsgan': True,
-        'resume':None,#'checkpoints/g2_lr_gan=0.0000002_interval_G=5_interval_D=10_net_D=lsganMultOutput_D/best_Ori_on_B_model.pth',#'checkpoints/v3_1/',
+        'resume':'checkpoints/lr_g1=0.00001_lr_g2=0.00000001_interval_g1=6_interval_d1=6_net_D=lsganMultOutput_D_if_adaptive=True/best_Ori_on_B_model.pth',#'checkpoints/v3_1/',
         'if_adv_train':True,
         'if_adaptive':True,
     }

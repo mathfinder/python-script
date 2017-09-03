@@ -254,7 +254,10 @@ class deeplabGanS2TWithRefine4(BaseModel):
         self.optimizer_G.load_state_dict(checkpoint['optimizer_G'])
         self.optimizer_D.load_state_dict(checkpoint['optimizer_D'])
         self.optimizer_R.load_state_dict(checkpoint['optimizer_R'])
-        for k,v in checkpoint['acc']:
+        print(checkpoint['Iter'])
+        '''
+        for k,v in checkpoint['acc'].items():
+            print(k)
             print('=================================================')
             print('accuracy: {0:.4f}\t'
                   'fg_accuracy: {1:.4f}\t'
@@ -263,6 +266,7 @@ class deeplabGanS2TWithRefine4(BaseModel):
                   'avg_f1score: {5:.4f}\t'
                   .format(v['accuracy'],v['fg_accuracy'],v['avg_precision'], v['avg_recall'], v['avg_f1score']))
             print('=================================================')
+        '''
 
     # helper loading function that can be used by subclasses
     def load_network(self, network, network_label, epoch_label):

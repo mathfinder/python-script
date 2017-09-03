@@ -267,7 +267,6 @@ class deeplabG1G2(BaseModel):
         self.optimizer_D1.zero_grad()
         self.backward_D1()
         self.optimizer_D1.step()
-
         if self.Iter % self.interval_g2 == 0 and self.if_adv_train:
             # G2
             self.optimizer_G2.zero_grad()
@@ -353,6 +352,11 @@ class deeplabG1G2(BaseModel):
         for param_group in self.optimizer_D1.param_groups:
             param_group['lr'] = param_group['lr'] * 0.1
         for param_group in self.optimizer_G1.param_groups:
+            param_group['lr'] = param_group['lr'] * 0.1
+
+        for param_group in self.optimizer_D2.param_groups:
+            param_group['lr'] = param_group['lr'] * 0.1
+        for param_group in self.optimizer_G2.param_groups:
             param_group['lr'] = param_group['lr'] * 0.1
 
     def train(self):
