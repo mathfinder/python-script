@@ -320,24 +320,24 @@ class DeeplabPool12Pool5(nn.Module):
         return x
 
 class DeeplabPool52Fc8_interp(nn.Module):
-    def __init__(self, size=(241,121)):
+    def __init__(self, output_nc, size=(241,121)):
         super(DeeplabPool52Fc8_interp, self).__init__()
 
         self.fc6_1 = nn.Conv2d(512, 1024, 3, padding=6, dilation=6)
         self.fc7_1 = nn.Conv2d(1024, 1024, 1)
-        self.fc8_1 = nn.Conv2d(1024, 12, 1)
+        self.fc8_1 = nn.Conv2d(1024, output_nc, 1)
 
         self.fc6_2 = nn.Conv2d(512, 1024, 3, padding=12, dilation=12)
         self.fc7_2 = nn.Conv2d(1024, 1024, 1)
-        self.fc8_2 = nn.Conv2d(1024, 12, 1)
+        self.fc8_2 = nn.Conv2d(1024, output_nc, 1)
 
         self.fc6_3 = nn.Conv2d(512, 1024, 3, padding=18, dilation=18)
         self.fc7_3 = nn.Conv2d(1024, 1024, 1)
-        self.fc8_3 = nn.Conv2d(1024, 12, 1)
+        self.fc8_3 = nn.Conv2d(1024, output_nc, 1)
 
         self.fc6_4 = nn.Conv2d(512, 1024, 3, padding=24, dilation=24)
         self.fc7_4 = nn.Conv2d(1024, 1024, 1)
-        self.fc8_4 = nn.Conv2d(1024, 12, 1)
+        self.fc8_4 = nn.Conv2d(1024, output_nc, 1)
         self.dropout = nn.Dropout2d(0.5)
         self.relu = nn.ReLU(inplace=True)
         self.fc8_interp = nn.Upsample(size=size, mode='bilinear')
@@ -623,13 +623,12 @@ class SinglePathdilationMultOutputNet(nn.Module):
         return self.model(x)
 
 class NoBNSinglePathdilationMultOutputNet(nn.Module):
-    def __init__(self):
+    def __init__(self, input_nc = 512):
         super(NoBNSinglePathdilationMultOutputNet, self).__init__()
-        input_nc = 512
         padding_type = 'reflect'
         use_dropout = 0
 
-        model = [nn.Conv2d(512, 1024, 3, padding=6, dilation=6), nn.ReLU(inplace=True),nn.Dropout2d(0.5),
+        model = [nn.Conv2d(input_nc, 1024, 3, padding=6, dilation=6), nn.ReLU(inplace=True),nn.Dropout2d(0.5),
                  nn.Conv2d(1024, 1024, 3, stride=2, padding=1), nn.ReLU(inplace=True),nn.Dropout2d(0.5),
                  nn.Conv2d(1024, 1, 3, stride=2, padding=1)]
 

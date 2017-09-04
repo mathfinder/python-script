@@ -94,7 +94,7 @@ def main():
 
     A_train_loader = data.DataLoader(imageLabelLoader(args['data_path'],dataName=args['domainA'], phase='train'), batch_size=args['batch_size'],
                                   num_workers=args['num_workers'], shuffle=True)
-    label_train_loader = data.DataLoader(labelLoader(args['data_path'], dataName=args['domainA'], phase='train_iou_0.4_onehot'),
+    label_train_loader = data.DataLoader(labelLoader(args['data_path'], dataName=args['domainA'], phase='train_onehot'),
                                      batch_size=args['batch_size'],
                                      num_workers=args['num_workers'], shuffle=True)
 
@@ -183,7 +183,7 @@ if __name__ == '__main__':
     global args
     args = {
         'test_init':False,
-        'label_nums':12,
+        'label_nums':11,
         'l_rate':1e-8,
         'lr_gan': 0.00000002,
         'beta1': 0.5,
@@ -195,14 +195,14 @@ if __name__ == '__main__':
         'num_workers':10,
         'print_freq':100,
         'device_ids':[1],
-        'domainA': 'Lip',
-        'domainB': 'Indoor',
+        'domainA': 'Lip_resize_nodress',
+        'domainB': 'Outdoor_nodress',
         'weigths_pool': 'pretrain_models',
         'pretrain_model': 'deeplab.pth',
         'fineSizeH':241,
         'fineSizeW':121,
         'input_nc':3,
-        'name': 'train_iou0.4_onehot_g2_lr_gan=0.00000002_interval_G=5_interval_D=5_net_D=lsganMultOutput_D',
+        'name': 'g2_lip_nodress_to_outdoor_nodress',
         'checkpoints_dir': 'checkpoints',
         'net_D': 'lsganMultOutput_D',
         'use_lsgan': True,

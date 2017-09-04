@@ -46,7 +46,6 @@ def poly_lr_scheduler(optimizer, init_lr, iter, lr_decay_iter=1, max_iter=30000,
         :param lr_decay_iter how frequently decay occurs, default is 1
         :param max_iter is number of maximum iterations
         :param power is a polymomial power
-
     """
     if iter % lr_decay_iter or iter > max_iter:
         return optimizer
@@ -66,9 +65,9 @@ def constant_learning_rate(optimizer, init_lr):
         print param_group['lr']
         #param_group['lr'] = init_lr
 
-class deeplabG1G2(BaseModel):
+class deeplabPG2G1R(BaseModel):
     def name(self):
-        return 'deeplabG1G2'
+        return 'deeplabPG2G1R'
 
     def initialize(self, args):
         BaseModel.initialize(self, args)
@@ -87,8 +86,8 @@ class deeplabG1G2(BaseModel):
         self.loss_D = Variable()
 
         self.netG1 = networks.netG().cuda(device_id=args['device_ids'][0])
-        self.netD1 = define_D(args['net_d1'],512).cuda(device_id=args['device_ids'][0])
-        self.netD2 = define_D(args['net_d2'],args['label_nums']).cuda(device_id=args['device_ids'][0])
+        self.netD1 = define_D(args['net_d1'], 512).cuda(device_id=args['device_ids'][0])
+        self.netD2 = define_D(args['net_d2'], args['label_nums']).cuda(device_id=args['device_ids'][0])
 
         self.deeplabPart1 = networks.DeeplabPool1().cuda(device_id=args['device_ids'][0])
         self.deeplabPart2 = networks.DeeplabPool12Pool5().cuda(device_id=args['device_ids'][0])
@@ -188,10 +187,6 @@ class deeplabG1G2(BaseModel):
         pass
 
     def backward_P(self):
-        # Maintain pool5_B in this status
-        self.pool5_B = self.deeplabPart2(self.deeplabPart1(self.B))
-        self.pool5_B_for_d1 = Variable(self.pool5_B.data)
-
         self.pool1_A = self.deeplabPart1(self.A)
         self.pool5_A = self.deeplabPart2(self.pool1_A)
         self.predic_A = self.deeplabPart3(self.pool5_A)
@@ -205,7 +200,7 @@ class deeplabG1G2(BaseModel):
 
 
     def backward_G1(self):
-        self.pool5_A = self.pool5_A + self.netG1(self.pool1_A)
+        self.pool5_A = self.pool5_A + self.netG1(self.deeplabPart1(self.A))
         pred_fake = self.netD1.forward(self.pool5_A)
 
         self.loss_G1 = self.criterionAdv(pred_fake, True)
@@ -214,7 +209,7 @@ class deeplabG1G2(BaseModel):
         self.pool5_A = Variable(self.pool5_A.data)
 
     def backward_D1(self):
-        pred_real = self.netD1.forward(self.pool5_B_for_d1)
+        pred_real = self.netD1.forward(self.deeplabPart2(self.deeplabPart1(self.B)))
         loss_D1_real = self.criterionAdv(pred_real, True)
 
         pred_fake = self.netD1.forward(self.pool5_A)
@@ -224,7 +219,7 @@ class deeplabG1G2(BaseModel):
         self.loss_D1.backward()
 
     def backward_G2(self):
-        self.predic_B = self.deeplabPart3(self.pool5_B)
+        self.predic_B = self.deeplabPart3(self.deeplabPart2(self.deeplabPart1(self.B)))
         pred_fake = self.netD2.forward(self.predic_B)
 
         self.loss_G2 = self.criterionAdv(pred_fake, True)
@@ -259,14 +254,7 @@ class deeplabG1G2(BaseModel):
         self.backward_P()
         self.optimizer_P.step()
 
-        # G1
-        self.optimizer_G1.zero_grad()
-        self.backward_G1()
-        self.optimizer_G1.step()
-        # D1
-        self.optimizer_D1.zero_grad()
-        self.backward_D1()
-        self.optimizer_D1.step()
+
         if self.Iter % self.interval_g2 == 0 and self.if_adv_train:
             # G2
             self.optimizer_G2.zero_grad()
@@ -277,6 +265,14 @@ class deeplabG1G2(BaseModel):
             self.optimizer_D2.zero_grad()
             self.backward_D2()
             self.optimizer_D2.step()
+        # G1
+        self.optimizer_G1.zero_grad()
+        self.backward_G1()
+        self.optimizer_G1.step()
+        # D1
+        self.optimizer_D1.zero_grad()
+        self.backward_D1()
+        self.optimizer_D1.step()
 
         # Refine
         self.optimizer_R.zero_grad()
@@ -349,11 +345,12 @@ class deeplabG1G2(BaseModel):
         network.load_state_dict(torch.load(save_path))
 
     def update_learning_rate(self):
+        '''
         for param_group in self.optimizer_D1.param_groups:
             param_group['lr'] = param_group['lr'] * 0.1
         for param_group in self.optimizer_G1.param_groups:
             param_group['lr'] = param_group['lr'] * 0.1
-
+        '''
         for param_group in self.optimizer_D2.param_groups:
             param_group['lr'] = param_group['lr'] * 0.1
         for param_group in self.optimizer_G2.param_groups:

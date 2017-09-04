@@ -21,7 +21,7 @@ def weights_init(m):
     elif classname.find('Linear') != -1:
         m.weight.data.normal_(0.0, 0.02)
 
-def define_D(which_netD, input_nc):
+def define_D(which_netD):
     if which_netD == 'FFC':
         return networks.FFC()
     elif which_netD == 'NoBNMultPathdilationNet':
@@ -31,13 +31,13 @@ def define_D(which_netD, input_nc):
     elif which_netD == 'SinglePathdilationMultOutputNet':
         return networks.SinglePathdilationMultOutputNet()
     elif which_netD == 'NoBNSinglePathdilationMultOutputNet':
-        return networks.NoBNSinglePathdilationMultOutputNet(input_nc)
+        return networks.NoBNSinglePathdilationMultOutputNet()
     elif which_netD == 'RandomMultPathdilationNet':
         return networks.RandomMultPathdilationNet()
     elif which_netD == 'lsgan_D':
         return networks.lsgan_D()
     elif which_netD == 'lsganMultOutput_D':
-        return networks.lsganMultOutput_D(input_nc)
+        return networks.lsganMultOutput_D()
 
 def poly_lr_scheduler(optimizer, init_lr, iter, lr_decay_iter=1, max_iter=30000, power=0.9,):
     """Polynomial decay of learning rate
@@ -46,7 +46,6 @@ def poly_lr_scheduler(optimizer, init_lr, iter, lr_decay_iter=1, max_iter=30000,
         :param lr_decay_iter how frequently decay occurs, default is 1
         :param max_iter is number of maximum iterations
         :param power is a polymomial power
-
     """
     if iter % lr_decay_iter or iter > max_iter:
         return optimizer
@@ -66,7 +65,7 @@ def constant_learning_rate(optimizer, init_lr):
         print param_group['lr']
         #param_group['lr'] = init_lr
 
-class deeplabG1G2(BaseModel):
+class deeplabPG1RG2(BaseModel):
     def name(self):
         return 'deeplabG1G2'
 
@@ -87,12 +86,12 @@ class deeplabG1G2(BaseModel):
         self.loss_D = Variable()
 
         self.netG1 = networks.netG().cuda(device_id=args['device_ids'][0])
-        self.netD1 = define_D(args['net_d1'],512).cuda(device_id=args['device_ids'][0])
-        self.netD2 = define_D(args['net_d2'],args['label_nums']).cuda(device_id=args['device_ids'][0])
+        self.netD1 = define_D(args['net_d1']).cuda(device_id=args['device_ids'][0])
+        self.netD2 = define_D(args['net_d2']).cuda(device_id=args['device_ids'][0])
 
         self.deeplabPart1 = networks.DeeplabPool1().cuda(device_id=args['device_ids'][0])
         self.deeplabPart2 = networks.DeeplabPool12Pool5().cuda(device_id=args['device_ids'][0])
-        self.deeplabPart3 = networks.DeeplabPool52Fc8_interp(output_nc=args['label_nums']).cuda(device_id=args['device_ids'][0])
+        self.deeplabPart3 = networks.DeeplabPool52Fc8_interp().cuda(device_id=args['device_ids'][0])
 
         # define loss functions
         self.criterionCE = torch.nn.CrossEntropyLoss(size_average=False)
@@ -224,7 +223,7 @@ class deeplabG1G2(BaseModel):
         self.loss_D1.backward()
 
     def backward_G2(self):
-        self.predic_B = self.deeplabPart3(self.pool5_B)
+        self.predic_B = self.deeplabPart3(self.deeplabPart2(self.deeplabPart1(self.B)))
         pred_fake = self.netD2.forward(self.predic_B)
 
         self.loss_G2 = self.criterionAdv(pred_fake, True)
@@ -267,6 +266,12 @@ class deeplabG1G2(BaseModel):
         self.optimizer_D1.zero_grad()
         self.backward_D1()
         self.optimizer_D1.step()
+
+        # Refine
+        self.optimizer_R.zero_grad()
+        self.backward_R()
+        self.optimizer_R.step()
+
         if self.Iter % self.interval_g2 == 0 and self.if_adv_train:
             # G2
             self.optimizer_G2.zero_grad()
@@ -277,11 +282,6 @@ class deeplabG1G2(BaseModel):
             self.optimizer_D2.zero_grad()
             self.backward_D2()
             self.optimizer_D2.step()
-
-        # Refine
-        self.optimizer_R.zero_grad()
-        self.backward_R()
-        self.optimizer_R.step()
 
 
     def get_current_visuals(self):
@@ -352,11 +352,6 @@ class deeplabG1G2(BaseModel):
         for param_group in self.optimizer_D1.param_groups:
             param_group['lr'] = param_group['lr'] * 0.1
         for param_group in self.optimizer_G1.param_groups:
-            param_group['lr'] = param_group['lr'] * 0.1
-
-        for param_group in self.optimizer_D2.param_groups:
-            param_group['lr'] = param_group['lr'] * 0.1
-        for param_group in self.optimizer_G2.param_groups:
             param_group['lr'] = param_group['lr'] * 0.1
 
     def train(self):

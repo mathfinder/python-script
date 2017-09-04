@@ -78,6 +78,19 @@ class ConfusionMatrix:
         else:
             return total_f1score / count
 
+    def f1score(self):
+        '''F1score: ignore the label that isn't in imgs of gt'''
+        f1score = []
+        for i in range(self.size):
+            t = self.pre_sum[i] + self.act_sum[i]
+            if t > 0:
+                f1score.append(2 * self.diag[i] / t)
+            else:
+                f1score.append(-1)
+        return f1score
+
+
+
     def mean_iou(self):
         '''meanIoU: ignore the label that isn't in imgs of gt'''
         total_iou = 0

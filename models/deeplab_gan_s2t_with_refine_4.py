@@ -254,7 +254,7 @@ class deeplabGanS2TWithRefine4(BaseModel):
         self.optimizer_G.load_state_dict(checkpoint['optimizer_G'])
         self.optimizer_D.load_state_dict(checkpoint['optimizer_D'])
         self.optimizer_R.load_state_dict(checkpoint['optimizer_R'])
-        print(checkpoint['Iter'])
+        print(checkpoint['acc'])
         '''
         for k,v in checkpoint['acc'].items():
             print(k)

@@ -2,7 +2,7 @@ import shutil
 import torch
 import time
 import torch.nn as nn
-from models.deeplab_g1_g2 import deeplabG1G2
+from models.deeplab_p_g2_g1_r import deeplabPG2G1R
 from torch.autograd import Variable
 from torch.utils import data
 from loader.image_label_loader import imageLabelLoader
@@ -107,7 +107,7 @@ def main():
     B_val_loader = data.DataLoader(imageLabelLoader(args['data_path'], dataName=args['domainB'], phase='val'),
                                    batch_size=args['batch_size'],
                                    num_workers=args['num_workers'], shuffle=False)
-    model = deeplabG1G2()
+    model = deeplabPG2G1R()
     model.initialize(args)
 
     # multi GPUS
@@ -121,8 +121,6 @@ def main():
             logger.info("=> loading checkpoint '{}'".format(args['resume']))
             Iter, Epoch, best_Ori_on_B = model.load(args['resume'])
             prec_Ori_on_B = best_Ori_on_B
-            if (args['if_adaptive'] and (Epoch + 1) % 30 == 0) or prec_Ori_on_B > 0.56:
-                model.update_learning_rate()
         else:
             print("=> no checkpoint found at '{}'".format(args['resume']))
 
@@ -175,11 +173,11 @@ def main():
                 best_Ori_on_B = max(prec_Ori_on_B, best_Ori_on_B)
                 if is_best:
                     model.save('best_Ori_on_B', Iter=Iter, epoch=epoch, acc={'acc_Ori_on_A':acc_Ori_on_A, 'acc_Ori_on_B':acc_Ori_on_B})
-                elif prec_Ori_on_B > 0.51:
+                elif prec_Ori_on_B > 0.503:
                     model.save('Iter_{}'.format(Iter), Iter=Iter, epoch=epoch,
                                acc={'acc_Ori_on_A': acc_Ori_on_A, 'acc_Ori_on_B': acc_Ori_on_B})
                 model.train()
-        if (args['if_adaptive'] and (epoch+1) % 30 == 0) or prec_Ori_on_B > 0.58:
+        if args['if_adaptive'] and ( (epoch+1) % 30 == 0 or prec_Ori_on_B > 0.515 ):
             model.update_learning_rate()
 
 
@@ -194,14 +192,14 @@ if __name__ == '__main__':
         'lr_g1': 0.00001,
         'lr_g2': 0.00000001,
         'beta1': 0.5,
-        'interval_g2':6,
-        'interval_d2':6,
+        'interval_g2':10,
+        'interval_d2':10,
         'data_path':'datasets',
         'n_epoch':1000,
         'batch_size':10,
         'num_workers':10,
         'print_freq':100,
-        'device_ids':[0],
+        'device_ids':[1],
         'domainA': 'Lip_resize_nodress',
         'domainB': 'Outdoor_nodress',
         'weigths_pool': 'pretrain_models',
@@ -209,12 +207,12 @@ if __name__ == '__main__':
         'fineSizeH':241,
         'fineSizeW':121,
         'input_nc':3,
-        'name': 'lip_no_dress_to_outdoor_no_dress_lr_g1=0.00001_lr_g2=0.00000001_interval_g1=6_interval_d1=6_net_D=lsganMultOutput_D_if_adaptive=True_resume_decay=g2',
+        'name': 'lip_no_dress_to_outdoor_no_dress_lr_g1=0.00001_lr_g2=0.00000001 interval_g1=10_interval_d1=10_net_D=lsganMultOutput_D_if_adaptive=True_PG2G1R_decay_d2',
         'checkpoints_dir': 'checkpoints',
         'net_d1': 'NoBNSinglePathdilationMultOutputNet',
         'net_d2': 'lsganMultOutput_D',
         'use_lsgan': True,
-        'resume':None,#'checkpoints/lr_g1=0.00001_lr_g2=0.00000001_interval_g1=6_interval_d1=6_net_D=lsganMultOutput_D_if_adaptive=True/best_Ori_on_B_model.pth',#'checkpoints/v3_1/',
+        'resume':None,#'checkpoints/g2_lr_gan=0.0000002_interval_G=5_interval_D=10_net_D=lsganMultOutput_D/best_Ori_on_B_model.pth',#'checkpoints/v3_1/',
         'if_adv_train':True,
         'if_adaptive':True,
     }
